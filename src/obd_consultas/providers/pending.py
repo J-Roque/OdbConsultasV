@@ -1,5 +1,6 @@
 """Conector pendiente: nunca presenta datos de ejemplo como datos consultados."""
 from dataclasses import dataclass
+
 from obd_consultas.domain.models import QueryResult, QueryStatus, SourceInfo
 
 

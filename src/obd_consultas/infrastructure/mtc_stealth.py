@@ -14,11 +14,12 @@ from __future__ import annotations
 
 import base64
 import binascii
-from datetime import datetime, timezone
+from collections.abc import Callable
 from time import monotonic
-from typing import Any, Callable
+from typing import Any
 
 from obd_consultas.domain.models import QueryResult, QueryStatus, normalize_plate
+from obd_consultas.infrastructure.connector_common import stamp_capture, validate_timeout
 from obd_consultas.infrastructure.scrapling_engine import ScraplingUnavailable, http_session
 from obd_consultas.providers.mtc import MTC_FORM_URL, mtc_result, result_from_response
 
@@ -65,18 +66,6 @@ def _decode_captcha(payload: object) -> bytes:
         raise ValueError("La imagen del captcha no es base64 valido.") from exc
 
 
-def _add_capture(result: QueryResult, attempts: int) -> QueryResult:
-    result.data.setdefault(
-        "capture",
-        {
-            "method": "stealth_ocr",
-            "attempts": attempts,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-        },
-    )
-    return result
-
-
 def query_mtc_stealth(
     plate: str,
     timeout: int = 180,
@@ -89,11 +78,10 @@ def query_mtc_stealth(
     """Consulta MTC sin ventana visible ni intervencion humana.
 
     Los flags de navegador (`headless`, `real_chrome`, etc.) se aceptan para
-    compartir la CLI con los demos conectores, pero no aplican: MTC usa HTTP.
+    compartir la CLI con los demas conectores, pero no aplican: MTC usa HTTP.
     """
     plate = normalize_plate(plate)
-    if not 10 <= timeout <= 600:
-        raise ValueError("El tiempo de espera debe estar entre 10 y 600 segundos.")
+    validate_timeout(timeout)
     if not 1 <= max_attempts <= 10:
         raise ValueError("Los intentos deben estar entre 1 y 10.")
 
@@ -133,7 +121,7 @@ def query_mtc_stealth(
                 payload = response.json()
                 result = result_from_response(plate, getattr(response, "status", 0), payload)
                 if result.status in {QueryStatus.SUCCESS, QueryStatus.NOT_FOUND}:
-                    return _add_capture(result, attempt)
+                    return stamp_capture(result, "stealth_ocr", attempts=attempt)
                 if result.status == QueryStatus.REQUIRES_INTERACTION and payload.get("orCodigo") == "-1":
                     last_status = QueryStatus.REQUIRES_INTERACTION
                     continue

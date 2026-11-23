@@ -6,7 +6,7 @@ codigo y pulse Buscar. Luego lee la respuesta JSON o los paneles visibles.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import sys
 from typing import Any
 from urllib.parse import urlparse
@@ -14,6 +14,12 @@ from urllib.parse import urlparse
 from playwright.sync_api import Error, TimeoutError, sync_playwright
 
 from obd_consultas.domain.models import QueryResult, QueryStatus, normalize_plate
+from obd_consultas.infrastructure.connector_common import (
+    result_from_api,
+    result_from_error,
+    safe_json,
+    validate_timeout,
+)
 from obd_consultas.providers.mtc import MTC_INFO, mtc_result, result_from_dom_capture, result_from_response
 
 CAPTURE_SCRIPT = r"""() => {
@@ -42,42 +48,22 @@ def is_query_response(url: str) -> bool:
     )
 
 
-def _safe_json(response: Any) -> Any:
-    try:
-        return response.json()
-    except Exception:
-        return None
-
-
 def _result_from_holder(plate: str, holder: dict[str, Any]) -> QueryResult:
     if "status" in holder:
-        result = result_from_response(plate, int(holder.get("status") or 0), holder.get("payload"))
-        if result.status in {QueryStatus.SUCCESS, QueryStatus.NOT_FOUND}:
-            result.data.setdefault(
-                "capture",
-                {
-                    "method": "browser_api",
-                    "captured_at": datetime.now(timezone.utc).isoformat(),
-                },
-            )
-        return result
+        return result_from_api(holder, plate, result_from_response, method="browser_api")
     if "dom" in holder:
         result = result_from_dom_capture(holder["dom"], plate)
-        if result.status == QueryStatus.SUCCESS:
-            result.data.setdefault("capture", {})["captured_at"] = datetime.now(timezone.utc).isoformat()
+        capture = result.data.setdefault("capture", {})
+        if result.status == QueryStatus.SUCCESS and isinstance(capture, dict):
+            capture["captured_at"] = datetime.now(UTC).isoformat()
         return result
-    if "error" in holder and holder["error"].__class__.__name__ == "TimeoutError":
-        return mtc_result(
-            plate,
-            QueryStatus.REQUIRES_INTERACTION,
-            "No se recibio el resultado a tiempo. El captcha puede seguir pendiente.",
-        )
-    if "error" in holder:
-        return mtc_result(plate, QueryStatus.UNAVAILABLE, "El navegador no pudo completar la consulta.")
-    return mtc_result(
+    return result_from_error(
         plate,
-        QueryStatus.REQUIRES_INTERACTION,
-        "El portal no entrego el resultado. Completa el captcha en el navegador.",
+        holder,
+        mtc_result,
+        timeout_message="No se recibio el resultado a tiempo. El captcha puede seguir pendiente.",
+        failure_message="El navegador no pudo completar la consulta.",
+        empty_message="El portal no entrego el resultado. Completa el captcha en el navegador.",
     )
 
 
@@ -85,8 +71,7 @@ def query_mtc_interactive(
     plate: str, timeout: int = 180, browser_channel: str = "msedge"
 ) -> QueryResult:
     plate = normalize_plate(plate)
-    if not 10 <= timeout <= 600:
-        raise ValueError("El tiempo de espera debe estar entre 10 y 600 segundos.")
+    validate_timeout(timeout)
     holder: dict[str, Any] = {}
 
     def observe(page: Any) -> None:
@@ -110,7 +95,7 @@ def query_mtc_interactive(
         deadline = page.evaluate("Date.now()") + timeout * 1000
         while page.evaluate("Date.now()") < deadline:
             if "response" in holder:
-                holder["payload"] = _safe_json(holder.pop("response"))
+                holder["payload"] = safe_json(holder.pop("response"))
                 return
             if "status" in holder and "payload" in holder:
                 return

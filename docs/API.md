@@ -43,10 +43,10 @@ En la APK, no escribas el token en el codigo fuente: guardalo con
 | Metodo | Ruta | Uso |
 |---|---|---|
 | GET | `/health` | `{"status":"ok"}` |
-| GET | `/v1/sources` | Fuentes y estado del conector |
+| GET | `/v1/sources` | Fuentes, estado del conector y `modes` disponibles (`basic`, `stealth`, `assisted`) |
 | POST | `/v1/queries` | Contrato basico: **no consulta**, devuelve `requires_interaction` |
-| POST | `/v1/queries/stealth` | Encola la consulta desatendida (SOAT, SUNARP, MTC o SUTRAN) y devuelve un `job_id` |
-| POST | `/v1/queries/assisted` | Encola la consulta asistida (SOAT o MTC) con navegador visible |
+| POST | `/v1/queries/stealth` | Encola la consulta desatendida y devuelve un `job_id`. Solo fuentes con `stealth` en `modes` |
+| POST | `/v1/queries/assisted` | Encola la consulta asistida con navegador visible. Solo fuentes con `assisted`; `browser`: `msedge`, `chrome` o `chromium` |
 | GET | `/v1/jobs/{job_id}` | Estado y resultado del trabajo |
 
 ## Flujo recomendado para la APK

@@ -1,5 +1,5 @@
-import copy
 import unittest
+
 from obd_consultas.domain.models import QueryStatus
 from obd_consultas.providers.soat import SoatParseError
 from obd_consultas.providers.soat_dom import parse_dom_capture, result_from_dom_capture

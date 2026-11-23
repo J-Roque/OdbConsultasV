@@ -10,10 +10,11 @@ aqui y el resto del proyecto sigue igual.
 """
 from __future__ import annotations
 
-import os
+from collections.abc import Iterator
 from contextlib import contextmanager
+import os
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 DEFAULT_LOCALE = "es-PE"
 DEFAULT_TIMEZONE = "America/Lima"
@@ -42,7 +43,7 @@ def _quiet_logs(level: str = "WARNING") -> None:
         from scrapling.core.utils import log
 
         log.setLevel(level)
-    except Exception:  # pragma: no cover - detalle interno de Scrapling
+    except Exception:  # noqa: S110  # pragma: no cover - detalle interno de Scrapling
         pass
 
 

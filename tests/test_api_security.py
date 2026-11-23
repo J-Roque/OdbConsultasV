@@ -2,21 +2,36 @@ import threading
 import unittest
 
 from fastapi.testclient import TestClient
+
 from obd_consultas.api.app import create_app
 from obd_consultas.api.security import ApiSettings, RateLimiter, token_problem
-from obd_consultas.domain.models import QueryResult, QueryStatus, Source
+from obd_consultas.application.queries import QueryService
+from obd_consultas.bootstrap import PROVIDERS, RUNNERS
+from obd_consultas.domain.models import QueryMode, QueryResult, QueryStatus, Source
 
 TOKEN = "token-sintetico-de-pruebas-0123456789abcdef"
 
 
-def _ok(*_args):
+def _ok(*_args, **_options):
     return QueryResult(Source.SUNARP, "ABC123", QueryStatus.SUCCESS, "", "ok", {})
 
 
-def _client(settings, **kwargs):
-    kwargs.setdefault("stealth_runner", _ok)
-    kwargs.setdefault("assisted_runner", _ok)
-    return TestClient(create_app(settings=settings, **kwargs))
+def _client(settings, stealth=_ok, assisted=_ok):
+    return TestClient(create_app(fake_service(stealth, assisted), settings=settings))
+
+
+def fake_service(stealth=None, assisted=None):
+    """Servicio real con la misma matriz fuente/modo, pero runners sinteticos."""
+    fakes = {QueryMode.STEALTH: stealth, QueryMode.ASSISTED: assisted}
+    runners = {
+        key: fakes[key[1]] or _unused_runner
+        for key in RUNNERS
+    }
+    return QueryService((PROVIDERS[s]() for s in PROVIDERS), runners)
+
+
+def _unused_runner(plate, timeout, **options):
+    raise AssertionError("runner no esperado en esta prueba")
 
 
 class AuthTests(unittest.TestCase):
@@ -101,12 +116,12 @@ class HardeningTests(unittest.TestCase):
     def test_active_jobs_are_limited(self):
         release = threading.Event()
 
-        def slow(*_args):
+        def slow(*_args, **_options):
             release.wait(5)
             return _ok()
 
         client = TestClient(
-            create_app(settings=ApiSettings(api_token=TOKEN, max_active_jobs=2), stealth_runner=slow),
+            create_app(fake_service(stealth=slow), settings=ApiSettings(api_token=TOKEN, max_active_jobs=2)),
             headers={"X-OBD-Token": TOKEN},
         )
         self.addCleanup(client.close)

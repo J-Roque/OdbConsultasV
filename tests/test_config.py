@@ -1,6 +1,6 @@
+from pathlib import Path
 import tempfile
 import unittest
-from pathlib import Path
 
 from obd_consultas.config import load_env_file, parse_env
 

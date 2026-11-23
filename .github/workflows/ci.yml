@@ -24,6 +24,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: ruff
+        run: uvx ruff@0.8.4 check --output-format github
+      - name: mypy
+        run: |
+          uv sync --frozen
+          uvx mypy==1.13.0 --python-executable .venv/bin/python
+
   tests:
     name: Tests
     runs-on: windows-latest

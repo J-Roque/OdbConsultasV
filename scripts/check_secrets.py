@@ -13,10 +13,10 @@ agrega el comentario ``secret-scan: allow`` en esa misma linea.
 from __future__ import annotations
 
 import fnmatch
+from pathlib import PurePosixPath
 import re
 import subprocess
 import sys
-from pathlib import PurePosixPath
 
 ALLOW_MARK = "secret-scan: allow"
 

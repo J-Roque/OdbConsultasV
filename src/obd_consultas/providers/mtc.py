@@ -6,9 +6,9 @@ respuesta oficial se normaliza aqui.
 """
 from __future__ import annotations
 
+from datetime import datetime
 import html
 import json
-from datetime import datetime
 
 from obd_consultas.domain.models import QueryResult, QueryStatus, Source, normalize_plate
 from obd_consultas.providers.catalog import SOURCES
