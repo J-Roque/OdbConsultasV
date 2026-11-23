@@ -7,10 +7,28 @@ Inspeccionado el 23 de noviembre de 2026 en:
 - https://digital.sutran.gob.pe/
 - https://api.dig.sutran.gob.pe/consultas/placa/{placa}
 
-El portal acepta una placa en el campo `placa`, resuelve Turnstile en el
-navegador y consulta una API publica que exige el contexto de la sesion
-en el navegador. Una consulta directa a la API sin esa sesion puede devolver
-HTTP 403.
+El portal acepta una placa en el campo `placa` y consulta una API publica en
+`https://api.dig.sutran.gob.pe/consultas/placa/{placa}`. La API exige la cabecera
+`X-Captcha-Token` que genera el widget Turnstile del formulario oficial; sin ese
+token devuelve HTTP 403 `CAPTCHA_INVALID`.
+
+## Estado de la validacion
+
+**El conector es experimental y `implemented=false`.** La estructura del codigo
+esta integrada (proveedor, CLI, API y pruebas sinteticas), pero la validacion real
+del 23/11/2026 **no obtuvo datos**:
+
+- El solver de Cloudflare de Scrapling falla en este portal: intenta hacer clic en
+  un `input[type="checkbox"]` de un iframe que se destruye y aborta la pagina.
+  Por eso el conector usa `solve_cloudflare=False`.
+- Con el solver desactivado, el formulario carga y acepta la placa, pero el token
+  de Turnstile queda vacio (`input[name="cf-turnstile-response"]`). No se envia la
+  consulta y se devuelve `requires_interaction`.
+- La llamada directa por HTTP tambien devuelve 403 sin `X-Captcha-Token`.
+
+No se extrae, reutiliza ni falsifica el token: el proyecto no publica una consulta
+que no pudo verificar. Este modulo se conserva como base para cuando se resuelva
+el reto del navegador.
 
 ## Flujo
 

@@ -21,21 +21,15 @@ MTC se implemento el 23/11/2026 en modo **desatendido con OCR local**
 portal lo rechaza. Tambien conserva un modo asistido respaldo con navegador
 visible. Ver [MTC.md](docs/MTC.md).
 
-SUTRAN se implemento el 23/11/2026 como consulta desatendida por placa. Abre
-el portal oficial, resuelve Turnstile cuando es posible y consulta
-`/consultas/placa/{placa}` en su API. El resultado distingue documentos
-encontrados de una placa sin registros; no presenta ausencia de documentos ante
-un bloqueo o error.
+SUTRAN tiene un conector **experimental** (`implemented=false`). Existe consulta
+publica por placa en `/consultas/placa/{placa}`, pero la API exige el token
+`X-Captcha-Token` de Turnstile. La validacion real no obtuvo ese token y la
+consulta devuelve `requires_interaction`; no se publica un resultado no
+verificado. Ver [SUTRAN.md](docs/SUTRAN.md).
 
-Modo visible si Turnstile exige intervencion:
-
-```powershell
-uv run obd-consultas query sutran TU_PLACA --stealth --show-browser --timeout 180
-```
-
-Para las tres fuentes, la API basica (`/v1/queries`) y la CLI sin `--stealth` ni
-`--interactive` devuelven `requires_interaction` sin consultar datos ni abrir
-ventanas.
+Para las fuentes configuradas, la API basica (`/v1/queries`) y la CLI sin
+`--stealth` ni `--interactive` devuelven `requires_interaction` sin consultar
+datos ni abrir ventanas.
 
 ## Ojo de implementacion
 
@@ -44,7 +38,7 @@ ventanas.
 | APESEG / SOAT | Vigencia y aseguradora | Implementado |
 | MTC | Revision tecnica y vigencias CITV | Implementado |
 | SUNARP | Propiedad, datos tecnicos y estado de robo | Implementado: imagen TIVE + campos con OCR local |
-| SUTRAN | Consulta por placa | Implementado |
+| SUTRAN | Multas por placa | Por validar: exige token Turnstile; conector experimental |
 | ATU | Multas por placa | Por validar (alcance publico y privacidad) |
 | SBS | Consulta publica por placa o aseguradora | Por validar |
 | AAP | Consulta por placa | Por validar |
@@ -188,12 +182,14 @@ src/obd_consultas/
   providers/soat.py        Parser y conector SOAT
   providers/sunarp.py      Parser y conector SUNARP
   providers/mtc.py         Parser y conector MTC
+  providers/sutran.py      Parser experimental de SUTRAN
   infrastructure/soat_browser.py  Consulta asistida con Playwright
   infrastructure/soat_stealth.py  Consulta desatendida con Scrapling
   infrastructure/sunarp_stealth.py  Consulta desatendida de SUNARP
   infrastructure/sunarp_ocr.py  Lectura local de la tarjeta TIVE (RapidOCR)
   infrastructure/mtc_browser.py  Consulta asistida de MTC con captcha humano
   infrastructure/mtc_stealth.py  Consulta desatendida de MTC con OCR local
+  infrastructure/sutran_stealth.py  Intento desatendido de SUTRAN (experimental)
   infrastructure/scrapling_engine.py  Sesiones sigilosas, HTTP, proxies y parser
   infrastructure/extraction.py  Reglas de extraccion y Markdown
   providers/pending.py     Respuesta explicita para conectores pendientes
@@ -209,6 +205,7 @@ docs/API.md                Contrato HTTP, trabajos sigilosos y uso desde APK
 docs/SOAT.md               Evidencia y flujo del portal APESEG
 docs/SUNARP.md             Evidencia, flujo y contrato del portal SUNARP
 docs/MTC.md                Evidencia, OCR local, captcha asistido y contrato MTC
+docs/SUTRAN.md             Evidencia y estado experimental del portal SUTRAN
 docs/SCRAPLING.md          Motor de scraping, comandos y limites
 ```
 

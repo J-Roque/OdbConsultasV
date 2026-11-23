@@ -25,7 +25,7 @@ Ninguna fuente se da por soportada solo porque exista una URL publica.
 | APESEG / SOAT | Vigencia y aseguradora | **Implementado** | `data.soat_vigente`, `data.vigente` y `data.certificados` con aseguradora, numero de poliza y vigencias. Ver [SOAT.md](SOAT.md). |
 | MTC | Revision tecnica y vigencias CITV | **Implementado** | Hasta tres registros en `data.registros`, etiquetados `ULTIMO`, `PENULTIMO` y `ANTEPENULTIMO`, con `data.vigente`. Modo desatendido con OCR local. Ver [MTC.md](MTC.md). |
 | SUNARP | Propiedad, datos tecnicos y estado de robo | **Implementado** | La imagen TIVE se entrega en `data.tarjeta` y sus campos se leen con OCR local en `data.vehiculo` (valor y confianza por campo). `alerta_robo` es campo JSON. Ver [SUNARP.md](SUNARP.md). |
-| SUTRAN | Papeletas e infracciones por placa | **Implementado** | Consulta publica por la API oficial. Funciona con navegador visible como respaldo ante Turnstile y devuelve `data.documentos`, las fuentes consultadas y el criterio normalizado. |
+| SUTRAN | Papeletas e infracciones por placa | **Por validar** | Existe consulta publica por placa, pero exige un token de Turnstile en `X-Captcha-Token`. El conector esta armado y es experimental, pero la validacion real no obtuvo el token: devuelve `requires_interaction`. Ver [SUTRAN.md](SUTRAN.md). |
 
 ### Cierre de SUNARP
 
@@ -60,8 +60,9 @@ Ninguna fuente se da por soportada solo porque exista una URL publica.
 
 1. **Cerrar SUNARP**: definir si propiedad y datos tecnicos se estructuran o se
    entregan solo como imagen. Es la unica fuente actual con dato parcial.
-2. **Validar SUTRAN y AAP**: son las mas cercanas al patron ya resuelto (consulta
-   por placa con formulario publico).
+2. **Resolver el Turnstile de SUTRAN**: hay evidencia de que la consulta por placa
+   existe, pero falta obtener el token de forma confiable. Mientras tanto el
+   conector queda como experimental y `implemented=False`. Despues, validar AAP.
 3. **Validar INFOGAS / FISE y ATU**: requieren revisar alcance publico y
    privacidad antes de escribir cualquier conector.
 4. **SBS y SAT**: solo si confirman consulta por placa o si aceptamos pedir el

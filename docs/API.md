@@ -51,6 +51,9 @@ consultar. No es una solucion para Internet.
 ```
 
 `source` admite `soat`, `sunarp` o `mtc`. `timeout` va de 10 a 600 segundos.
+`sutran` acepta el cuerpo pero es experimental: su portal exige un token de
+Turnstile que hoy no se obtiene de forma desatendida, por lo que devuelve
+`requires_interaction`. Ver [SUTRAN.md](SUTRAN.md).
 El caso de MTC se resuelve con OCR local; el campo `browser` no aplica.
 `/v1/queries/assisted` permite `soat` o `mtc` y abre el navegador visible:
 

@@ -22,7 +22,7 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(by_source["soat"]["implemented"])
         self.assertTrue(by_source["sunarp"]["implemented"])
         self.assertTrue(by_source["mtc"]["implemented"])
-        self.assertTrue(by_source["sutran"]["implemented"])
+        self.assertFalse(by_source["sutran"]["implemented"])
 
     def test_soat_requires_interaction_without_opening_browser(self):
         response = self.client.post("/v1/queries", json={"source": "soat", "plate": "abc-123"})
