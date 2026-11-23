@@ -20,11 +20,14 @@ from typing import Any, Literal
 import uuid
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
+from pydantic.json_schema import models_json_schema
 
 from obd_consultas.api.security import TOKEN_HEADER, TOKEN_HINT, ApiSettings, RateLimiter
 from obd_consultas.application.queries import MAX_TIMEOUT, MIN_TIMEOUT, QueryService
 from obd_consultas.bootstrap import build_service
+from obd_consultas.contracts import ALL_MODELS
 from obd_consultas.domain.models import (
     InvalidPlate,
     QueryMode,
@@ -39,6 +42,13 @@ Plate = Field(min_length=1, max_length=32)
 Timeout = Field(default=180, ge=MIN_TIMEOUT, le=MAX_TIMEOUT)
 
 
+# `data` segun la fuente; objeto vacio en estados no finales.
+_DATA_SCHEMA: dict[str, Any] = {
+    "anyOf": [{"$ref": f"#/components/schemas/{m.__name__}"} for m in ALL_MODELS]
+    + [{"type": "object", "maxProperties": 0}],
+}
+
+
 class QueryRequest(BaseModel):
     source: Source
     plate: str = Plate
@@ -50,7 +60,14 @@ class QueryResponse(BaseModel):
     status: QueryStatus
     source_url: str
     message: str
-    data: dict[str, Any]
+    data: dict[str, Any] = Field(
+        description=(
+            "Depende de `source` y `status`: en `success`/`not_found` sigue el contrato "
+            "de la fuente (SoatData, SunarpData, SunarpNotFound, MtcData, SutranData); "
+            "en los demas estados viene vacio."
+        ),
+        json_schema_extra=_DATA_SCHEMA,
+    )
     queried_at: datetime
 
 
@@ -186,6 +203,20 @@ def create_app(
         redoc_url="/redoc" if docs else None,
         openapi_url="/openapi.json" if docs else None,
     )
+
+    def openapi() -> dict[str, Any]:
+        # Publica los contratos por fuente para generar el cliente de la APK.
+        if app.openapi_schema is None:
+            schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+            _, defs = models_json_schema(
+                [(model, "serialization") for model in ALL_MODELS],
+                ref_template="#/components/schemas/{model}",
+            )
+            schema.setdefault("components", {}).setdefault("schemas", {}).update(defs.get("$defs", {}))
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):

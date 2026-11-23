@@ -36,6 +36,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 - `ruff` y `mypy` configurados en `pyproject.toml` y ejecutados en CI.
 
 ### Cambiado (API)
+- Contrato tipado de `data` por fuente (`contracts.py`), publicado en `/openapi.json`
+  y verificado en tests; `propietarios.valor` de SUNARP documentado como lista.
 - `/v1/sources` incluye `modes` por fuente.
 - Fuente no admitida en un modo: 422 con la lista de fuentes validas.
 - `browser` en `/v1/queries/assisted` restringido a `msedge`, `chrome` o `chromium`.
