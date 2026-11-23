@@ -87,7 +87,9 @@ def query_sutran_stealth(
     options = {
         "headless": headless,
         "real_chrome": real_chrome,
-        "solve_cloudflare": headless,
+        # El solver de Cloudflare de Scrapling falla aqui: intenta hacer clic en
+        # un checkbox de un iframe que se destruye y aborta la pagina.
+        "solve_cloudflare": False,
         "timeout": min(max(timeout * 1000, 60_000), 120_000),
         "retries": 1,
         "profile": profile,
@@ -117,6 +119,12 @@ def query_sutran_stealth(
             "No se pudo completar la sesion con el portal SUTRAN.",
         )
 
+    if "captcha" in holder:
+        return sutran_result(
+            plate,
+            QueryStatus.REQUIRES_INTERACTION,
+            "SUTRAN no entrego el token de Turnstile. El portal permite consultar por placa, pero exige verificacion del navegador.",
+        )
     if "status" not in holder:
         if holder.get("error") is not None:
             return sutran_result(

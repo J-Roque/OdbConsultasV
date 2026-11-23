@@ -1,0 +1,12 @@
+#!/bin/sh
+# Exige Conventional Commits: tipo(alcance opcional): descripcion
+msg="$(head -n 1 "$1")"
+case "$msg" in
+  Merge*|Revert*|fixup!*|squash!*) exit 0 ;;
+esac
+if ! printf '%s' "$msg" | grep -Eq '^(feat|fix|docs|test|refactor|perf|chore|ci|build|security)(\([a-z0-9._-]+\))?!?: .{3,}$'; then
+  echo "Mensaje de commit invalido: \"$msg\"" >&2
+  echo "Formato: tipo(alcance): descripcion   ej. feat(sunarp): leer placa anterior" >&2
+  echo "Tipos: feat fix docs test refactor perf chore ci build security" >&2
+  exit 1
+fi

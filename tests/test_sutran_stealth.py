@@ -22,6 +22,8 @@ class FakePage:
         self.response_listener = callback
     def wait_for_selector(self, *args, **kwargs):
         pass
+    def evaluate(self, script):
+        return "token-sintetico"
     def locator(self, selector):
         return self
     def fill(self, plate, **kwargs):

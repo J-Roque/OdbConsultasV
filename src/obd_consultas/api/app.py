@@ -4,19 +4,22 @@
 consulta real en un hilo, ejecuta el navegador sigiloso en la PC y permite
 consultar el resultado por ``GET /v1/jobs/{job_id}``. Los trabajos viven solo en
 memoria; reiniciar el proceso los descarta.
+
+Los controles de seguridad (token obligatorio, limite de peticiones, docs y modo
+asistido desactivados por defecto) viven en :mod:`obd_consultas.api.security`.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime
-import os
 import threading
 import uuid
 from typing import Any, Callable, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from obd_consultas.api.security import TOKEN_HEADER, TOKEN_HINT, ApiSettings, RateLimiter
 from obd_consultas.application.queries import QueryService
 from obd_consultas.bootstrap import build_service
 from obd_consultas.domain.models import (
@@ -29,8 +32,6 @@ from obd_consultas.domain.models import (
 
 StealthRunner = Callable[[str, str, int], QueryResult]
 MAX_JOBS = 100
-TOKEN_HEADER = "X-OBD-Token"
-TOKEN_ENV = "OBD_API_TOKEN"
 
 
 class QueryRequest(BaseModel):
@@ -87,12 +88,6 @@ class _Job:
     result: QueryResult | None = None
 
 
-def _require_token(x_obd_token: str | None = Header(default=None, alias=TOKEN_HEADER)) -> None:
-    expected = os.environ.get(TOKEN_ENV, "").strip()
-    if expected and x_obd_token != expected:
-        raise HTTPException(status_code=401, detail="Token invalido o ausente.")
-
-
 def _default_runner(source: str, plate: str, timeout: int) -> QueryResult:
     """Ejecuta el conector sigiloso real en el proceso de la PC."""
     if source == "sunarp":
@@ -130,7 +125,10 @@ def create_app(
     *,
     stealth_runner: StealthRunner | None = None,
     assisted_runner: Callable[..., QueryResult] | None = None,
+    settings: ApiSettings | None = None,
 ) -> FastAPI:
+    config = settings if settings is not None else ApiSettings.from_env()
+    limiter = RateLimiter(config.rate_limit_per_minute)
     queries = service if service is not None else build_service()
     runner = stealth_runner if stealth_runner is not None else _default_runner
     assisted = assisted_runner if assisted_runner is not None else _default_assisted_runner
@@ -138,12 +136,42 @@ def create_app(
     jobs_lock = threading.Lock()
     work_lock = threading.Lock()
 
+    def guard(
+        request: Request,
+        x_obd_token: str | None = Header(default=None, alias=TOKEN_HEADER),
+    ) -> None:
+        # Primero el limite (frena fuerza bruta), luego el token (fail-closed).
+        client = request.client.host if request.client else "desconocido"
+        wait = limiter.retry_after(client)
+        if wait:
+            raise HTTPException(
+                status_code=429,
+                detail="Demasiadas peticiones. Intenta mas tarde.",
+                headers={"Retry-After": str(wait)},
+            )
+        if config.token_problem is not None:
+            raise HTTPException(
+                status_code=503,
+                detail=f"API sin autenticacion configurada. {TOKEN_HINT}",
+            )
+        if not config.token_matches(x_obd_token):
+            raise HTTPException(status_code=401, detail="Token invalido o ausente.")
+
+    protected = [Depends(guard)]
+
     def _enqueue(source: str, plate: str, timeout: int, work_fn: Callable[[], QueryResult]) -> dict[str, str]:
         job = _Job(job_id=uuid.uuid4().hex)
         with jobs_lock:
-            if len(jobs) >= MAX_JOBS:
-                oldest = next(iter(jobs))
-                jobs.pop(oldest, None)
+            active = sum(1 for j in jobs.values() if j.state != "done")
+            if active >= config.max_active_jobs:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Hay demasiadas consultas en curso. Espera a que terminen.",
+                    headers={"Retry-After": "30"},
+                )
+            while len(jobs) >= MAX_JOBS:
+                done = next((k for k, j in jobs.items() if j.state == "done"), None)
+                jobs.pop(done if done is not None else next(iter(jobs)), None)
             jobs[job.job_id] = job
         source_url = queries.source_info(Source(source)).url
 
@@ -170,17 +198,33 @@ def create_app(
             "poll_url": f"/v1/jobs/{job.job_id}",
         }
 
-    app = FastAPI(title="OBD Consultas", version="0.1.0")
+    docs = config.enable_docs
+    app = FastAPI(
+        title="OBD Consultas",
+        version="0.1.0",
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+    )
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        # Las respuestas traen placas y datos personales: que no se cacheen.
+        response.headers.setdefault("Cache-Control", "no-store")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        return response
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/v1/sources", response_model=list[SourceResponse], dependencies=[Depends(_require_token)])
+    @app.get("/v1/sources", response_model=list[SourceResponse], dependencies=protected)
     def sources():
         return [asdict(info) for info in queries.sources()]
 
-    @app.post("/v1/queries", response_model=QueryResponse, dependencies=[Depends(_require_token)])
+    @app.post("/v1/queries", response_model=QueryResponse, dependencies=protected)
     def query(request: QueryRequest):
         try:
             return queries.query(request.source, request.plate).to_dict()
@@ -191,7 +235,7 @@ def create_app(
         "/v1/queries/stealth",
         response_model=JobCreatedResponse,
         status_code=202,
-        dependencies=[Depends(_require_token)],
+        dependencies=protected,
     )
     def stealth_query(request: StealthQueryRequest):
         try:
@@ -205,9 +249,14 @@ def create_app(
         "/v1/queries/assisted",
         response_model=JobCreatedResponse,
         status_code=202,
-        dependencies=[Depends(_require_token)],
+        dependencies=protected,
     )
     def assisted_query(request: AssistedQueryRequest):
+        if not config.enable_assisted:
+            raise HTTPException(
+                status_code=403,
+                detail="Consulta asistida deshabilitada en esta API. Define OBD_API_ASSISTED=1 para habilitarla.",
+            )
         try:
             plate = normalize_plate(request.plate)
         except InvalidPlate as exc:
@@ -221,7 +270,7 @@ def create_app(
             lambda: assisted(source, plate, timeout, browser),
         )
 
-    @app.get("/v1/jobs/{job_id}", response_model=JobResponse, dependencies=[Depends(_require_token)])
+    @app.get("/v1/jobs/{job_id}", response_model=JobResponse, dependencies=protected)
     def job_status(job_id: str):
         with jobs_lock:
             job = jobs.get(job_id)

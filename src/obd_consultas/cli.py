@@ -116,6 +116,40 @@ def _install_browsers(force: bool) -> None:
         subprocess.run(command, check=True)
 
 
+def _serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    import uvicorn
+    from obd_consultas.api.security import TOKEN_HINT, ApiSettings
+
+    try:
+        settings = ApiSettings.from_env()
+    except ValueError as exc:
+        parser.exit(1, f"Configuracion invalida: {exc}\n")
+    problem = settings.token_problem
+    if problem is not None:
+        parser.exit(1, f"{problem} La API exige token siempre.\n{TOKEN_HINT}\n")
+    if bool(args.ssl_certfile) != bool(args.ssl_keyfile):
+        parser.error("--ssl-certfile y --ssl-keyfile van juntos.")
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    if args.host not in loopback and not args.ssl_certfile:
+        print(
+            "Aviso: API expuesta por HTTP sin cifrar. El token y los datos viajan en claro; "
+            "usala solo en una red de confianza o agrega --ssl-certfile/--ssl-keyfile.",
+            file=sys.stderr,
+        )
+    if settings.enable_assisted:
+        print("Aviso: OBD_API_ASSISTED=1 permite abrir navegadores visibles en esta PC.", file=sys.stderr)
+    uvicorn.run(
+        "obd_consultas.api.app:create_app",
+        factory=True,
+        host=args.host,
+        port=args.port,
+        access_log=False,
+        server_header=False,
+        ssl_certfile=str(args.ssl_certfile) if args.ssl_certfile else None,
+        ssl_keyfile=str(args.ssl_keyfile) if args.ssl_keyfile else None,
+    )
+
+
 def main() -> None:
     # Windows suele abrir la consola en cp1252; Markdown y nombres traen Unicode.
     for stream in (sys.stdout, sys.stderr):
@@ -168,11 +202,31 @@ def main() -> None:
     serve = commands.add_parser("serve", help="Inicia la API local")
     serve.add_argument("--host", default="127.0.0.1", help="Direccion de escucha; 0.0.0.0 expone en LAN")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--env-file", type=Path, default=Path(".env"), help="Archivo de variables; por defecto .env")
+    serve.add_argument("--ssl-certfile", type=Path, help="Certificado TLS (PEM) para servir HTTPS")
+    serve.add_argument("--ssl-keyfile", type=Path, help="Clave privada TLS (PEM)")
+    commands.add_parser("token", help="Genera un token aleatorio para OBD_API_TOKEN")
     argv = sys.argv[1:]
     # Compatibilidad con el comando inicial: obd-consultas soat --list.
     if argv and argv[0] in {s.value for s in Source}:
         argv = ["inspect", *argv]
     args = parser.parse_args(argv)
+    # Variables locales (token, proxy); las ya definidas en el entorno ganan.
+    from obd_consultas.config import load_env_file
+    try:
+        load_env_file(getattr(args, "env_file", None) or Path(".env"))
+    except ValueError as exc:
+        parser.exit(1, f"No se pudo leer el archivo .env: {exc}\n")
+    if getattr(args, "proxy", None) and "@" in args.proxy:
+        print(
+            "Aviso: el proxy trae credenciales en la linea de comandos y quedaran en el "
+            "historial. Usa OBD_PROXY_URL en .env.",
+            file=sys.stderr,
+        )
+    if args.command == "token":
+        import secrets
+        print(secrets.token_urlsafe(48))
+        return
     service = build_service()
 
     if args.command == "sources":
@@ -256,17 +310,7 @@ def main() -> None:
         if result.status != QueryStatus.SUCCESS:
             raise SystemExit(1)
     elif args.command == "serve":
-        import os
-        import uvicorn
-        loopback = {"127.0.0.1", "localhost", "::1"}
-        if args.host not in loopback and not os.environ.get("OBD_API_TOKEN", "").strip():
-            parser.exit(
-                1,
-                "Para exponer la API fuera de esta PC define OBD_API_TOKEN primero.\n"
-                "Ejemplo: $env:OBD_API_TOKEN='clave-larga'; obd-consultas serve --host 0.0.0.0\n",
-            )
-        uvicorn.run("obd_consultas.api.app:create_app", factory=True, host=args.host, port=args.port, access_log=False)
-
+        _serve(args, parser)
 
 if __name__ == "__main__":
     main()

@@ -18,3 +18,20 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+
+# Secretos y credenciales
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+secrets/
+
+# Sesiones y datos personales capturados (cookies, respuestas, imagenes TIVE)
+*.pkl
+*.pickle
+*cookies*
+*.har
+*.sqlite
+*.db
+capturas/

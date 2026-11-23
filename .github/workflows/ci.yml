@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secretos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Revision propia (archivos prohibidos y patrones)
+        run: python scripts/check_secrets.py --all
+      - name: gitleaks (historial completo)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  tests:
+    name: Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: uv sync --extra dev --frozen
+      - name: Compilar
+        run: uv run python -m compileall -q src tests scripts
+      - name: Tests
+        run: uv run --extra dev python -m unittest discover -s tests -v
