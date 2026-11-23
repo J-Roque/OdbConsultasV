@@ -5,6 +5,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 
 ## [Sin publicar]
 
+## [0.2.0] - 2026-11-23
+
 ### Seguridad
 - La API exige `OBD_API_TOKEN` siempre (minimo 32 caracteres); sin token valido
   `/v1/*` responde 503 en vez de quedar abierta.
