@@ -48,7 +48,7 @@ Ninguna fuente se da por soportada solo porque exista una URL publica.
 | SUNAT | Consulta vehicular / tributaria | **Requiere datos adicionales** | Verificar que se necesita numero de documento u otros datos. Sin ese dato no se incorpora a la consulta por placa. |
 | AAP | Confirmar si su consulta esta disponible por placa | **Por validar** | Comprobar si existe busqueda por placa y si los datos difieren de APESEG. Evitar duplicar SOAT sin ganancia. |
 | INFOGAS / FISE | Confirmar si la instalacion GNV/GLP se consulta por placa | **Por validar** | Verificar si hay consulta por placa o solo listados de talleres autorizados. Nota: el portal MTC ya muestra un listado de talleres de conversion GNV/GLP, pero no por placa. |
-| SAT Lima (capturas) | Orden de captura por placa | **Por validar** | La app ObdScanner ya la usa via ApisTED solo con la placa. Inspeccionar el portal del SAT de Lima: formulario, captcha y campos del resultado. |
+| SAT Lima (capturas) | Orden de captura por placa | **Por validar** | La app ObdScanner ya la usa via ApisTED solo con la placa. Formulario inspeccionado: placa + captcha de imagen. Falta ver una respuesta real. Ver [SAT.md](SAT.md). |
 | SAT Lima (papeletas) | Papeletas por placa | **Por validar** | La app no la consulta hoy. Confirmar si la busqueda por placa es publica y que pide ademas de la placa. |
 | SAT Callao | Papeletas por placa | **Por validar** | La app ObdScanner la usa via ApisTED. Inspeccionar el portal del Callao. |
 | SUNARP historial | Transferencias y gravamenes | **Por validar** | La app la usa via ApisTED como consulta opcional. Confirmar si existe consulta publica o si es un servicio pagado de SUNARP. |

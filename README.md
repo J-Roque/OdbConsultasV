@@ -220,6 +220,7 @@ CONTRIBUTING.md            Git Flow, convenciones de commits y checklist
 CHANGELOG.md               Historial de versiones
 docs/PLAN.md               Inventario de fuentes, estados y orden sugerido
 docs/COBERTURA-APP.md      Fuentes que necesita la app ObdScanner y diferencias de contrato
+docs/SAT.md                Evidencia del portal de capturas del SAT de Lima
 docs/ARQUITECTURA.md       Decisiones, flujo y plan de implementacion
 docs/API.md                Contrato HTTP, trabajos sigilosos y uso desde APK
 docs/SOAT.md               Evidencia y flujo del portal APESEG
