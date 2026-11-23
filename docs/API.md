@@ -109,6 +109,35 @@ esperan su turno.
    `not_found`, `requires_interaction`, `unavailable`, `parse_error` y
    `not_implemented`. HTTP 200 significa "resultado estructurado", no exito.
 
+## Contrato de `data`
+
+`result.data` depende de `source` y `status`. En `success` y `not_found` sigue el
+contrato de su fuente, definido en
+[`src/obd_consultas/contracts.py`](../src/obd_consultas/contracts.py); en los
+demas estados llega vacio (`{}`).
+
+| Fuente | `success` | `not_found` |
+|---|---|---|
+| `soat` | `SoatData` | `SoatData` (`encontrado=false`, `certificados=[]`) |
+| `sunarp` | `SunarpData` | `SunarpNotFound` (`{"encontrado": false}`) |
+| `mtc` | `MtcData` | `MtcData` (`registros=[]`) |
+| `sutran` | `SutranData` (experimental) | `SutranData` |
+
+Reglas: fechas `AAAA-MM-DD`; `null` significa que la fuente no informo el dato;
+`capture.method` indica como se obtuvo. En SUNARP, `vehiculo` trae los campos de
+la tarjeta leidos por OCR con su `confianza` (0-1), `propietarios.valor` es una
+lista y, si el OCR falla, `vehiculo` es `{"disponible": false, "motivo": ...}`.
+
+Los esquemas completos estan en `/openapi.json` (con `OBD_API_DOCS=1`). Para
+generar el cliente Kotlin de la APK:
+
+```powershell
+npx @openapitools/openapi-generator-cli generate -i http://127.0.0.1:8000/openapi.json -g kotlin -o cliente-kotlin
+```
+
+Los tests de `tests/test_contracts.py` fallan si un parser cambia la forma de
+`data`: cualquier cambio del contrato es deliberado y debe anotarse en el CHANGELOG.
+
 ## Resultado de SUNARP
 
 `data` contiene:
