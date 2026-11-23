@@ -19,6 +19,7 @@ from obd_consultas.providers.base import VehicleProvider
 from obd_consultas.providers.catalog import SOURCES
 from obd_consultas.providers.mtc import MtcProvider
 from obd_consultas.providers.pending import PendingProvider
+from obd_consultas.providers.sat import SatProvider
 from obd_consultas.providers.soat import SoatProvider
 from obd_consultas.providers.sunarp import SunarpProvider
 from obd_consultas.providers.sutran import SutranProvider
@@ -28,6 +29,7 @@ PROVIDERS: dict[Source, Callable[[], VehicleProvider]] = {
     Source.SUNARP: SunarpProvider,
     Source.MTC: MtcProvider,
     Source.SUTRAN: SutranProvider,
+    Source.SAT: SatProvider,
 }
 
 _INFRA = "obd_consultas.infrastructure"
@@ -54,6 +56,7 @@ RUNNERS: dict[RunnerKey, Runner] = {
     (Source.MTC, QueryMode.STEALTH): _lazy("mtc_stealth", "query_mtc_stealth"),
     (Source.MTC, QueryMode.ASSISTED): _lazy("mtc_browser", "query_mtc_interactive", assisted=True),
     (Source.SUTRAN, QueryMode.STEALTH): _lazy("sutran_stealth", "query_sutran_stealth"),
+    (Source.SAT, QueryMode.STEALTH): _lazy("sat_stealth", "query_sat_stealth"),
 }
 
 

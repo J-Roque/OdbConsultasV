@@ -28,10 +28,26 @@ Captcha: imagen de `controles/JpegImage_VB.aspx?r=<aleatorio>`, unos 96x32 px,
 La pagina tiene una segunda pestana, "Internamiento de vehiculos" (deposito
 vehicular), que podria ser otra fuente util.
 
-## Enfoque probable
+## Conector (experimental)
 
-Igual que MTC: sesion HTTP, GET para leer los campos ocultos y la imagen,
-lectura local del captcha y POST con la placa. Pendiente:
+`infrastructure/sat_stealth.py`, igual que MTC: sesion HTTP, GET para leer los
+campos ocultos y la imagen, lectura local del captcha (`ddddocr`, 4 a 6 letras o
+numeros) y POST con la placa. Si el portal rechaza el codigo, reintenta con el
+captcha nuevo de la misma respuesta, hasta 5 veces.
+
+El 24/11/2026 se comprobo que la sesion HTTP carga el formulario (HTTP 200) y la
+imagen del captcha (JPEG). Aun no se envio una consulta.
+
+El parser (`providers/sat.py`) es provisional: toma las tablas de resultado
+como `ordenes` y reconoce mensajes como "no tiene orden de captura". Si no
+reconoce la pagina devuelve `parse_error`, nunca `not_found`. Con
+`OBD_DEBUG_DIR` definido guarda el HTML crudo para ajustarlo.
+
+```powershell
+uv run obd-consultas query sat TU_PLACA --stealth
+```
+
+Pendiente:
 
 1. Ver una respuesta real (con y sin orden de captura) para definir el parser.
 2. Medir cuantas veces acierta la lectura del captcha.

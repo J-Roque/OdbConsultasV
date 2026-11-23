@@ -11,6 +11,7 @@ class Source(str, Enum):
     SUNARP = "sunarp"
     MTC = "mtc"
     SUTRAN = "sutran"
+    SAT = "sat"
 
 
 class QueryStatus(str, Enum):
