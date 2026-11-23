@@ -1,6 +1,7 @@
 """Normaliza respuestas del formulario APESEG. No reproduce tokens de Turnstile."""
 from datetime import datetime
 import re
+
 from obd_consultas.domain.models import QueryResult, QueryStatus, Source, normalize_plate
 from obd_consultas.providers.catalog import SOURCES
 

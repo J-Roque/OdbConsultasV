@@ -2,11 +2,13 @@
 import argparse
 from dataclasses import asdict
 import json
-import sys
 from pathlib import Path
+import sys
+from typing import Literal
 
+from obd_consultas.application.queries import QueryService
 from obd_consultas.bootstrap import build_service
-from obd_consultas.domain.models import InvalidPlate, QueryStatus, Source, normalize_plate
+from obd_consultas.domain.models import QueryMode, QueryStatus, Source, normalize_plate
 
 
 def _format_from_suffix(output: Path | None) -> str:
@@ -70,7 +72,7 @@ def _extract(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         parser.exit(1, f"La pagina devolvio HTTP {status}.\n")
 
     selector = args.xpath_selector or args.css_selector
-    engine = "xpath" if args.xpath_selector else "css"
+    engine: Literal["css", "xpath"] = "xpath" if args.xpath_selector else "css"
     output_format = args.format or _format_from_suffix(args.output)
     try:
         if output_format == "html":
@@ -113,15 +115,49 @@ def _install_browsers(force: bool) -> None:
         if force:
             command.append("--force")
         print("Ejecutando: " + " ".join(command[2:]), file=sys.stderr)
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True)  # noqa: S603 - argumentos fijos, sin entrada del usuario
 
 
-def main() -> None:
-    # Windows suele abrir la consola en cp1252; Markdown y nombres traen Unicode.
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is not None:
-            reconfigure(encoding="utf-8", errors="replace")
+def _serve(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    import uvicorn
+
+    from obd_consultas.api.security import TOKEN_HINT, ApiSettings
+
+    try:
+        settings = ApiSettings.from_env()
+    except ValueError as exc:
+        parser.exit(1, f"Configuracion invalida: {exc}\n")
+    problem = settings.token_problem
+    if problem is not None:
+        parser.exit(1, f"{problem} La API exige token siempre.\n{TOKEN_HINT}\n")
+    if bool(args.ssl_certfile) != bool(args.ssl_keyfile):
+        parser.error("--ssl-certfile y --ssl-keyfile van juntos.")
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    if args.host not in loopback and not args.ssl_certfile:
+        print(
+            "Aviso: API expuesta por HTTP sin cifrar. El token y los datos viajan en claro; "
+            "usala solo en una red de confianza o agrega --ssl-certfile/--ssl-keyfile.",
+            file=sys.stderr,
+        )
+    if settings.enable_assisted:
+        print("Aviso: OBD_API_ASSISTED=1 permite abrir navegadores visibles en esta PC.", file=sys.stderr)
+    uvicorn.run(
+        "obd_consultas.api.app:create_app",
+        factory=True,
+        host=args.host,
+        port=args.port,
+        access_log=False,
+        server_header=False,
+        ssl_certfile=str(args.ssl_certfile) if args.ssl_certfile else None,
+        ssl_keyfile=str(args.ssl_keyfile) if args.ssl_keyfile else None,
+    )
+
+
+def _mode_sources(service: QueryService, mode: QueryMode) -> str:
+    return ", ".join(source.value.upper() for source in service.sources_for(mode))
+
+
+def _build_parser(service: QueryService) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("sources", help="Lista fuentes y estado de implementacion")
@@ -132,8 +168,10 @@ def main() -> None:
     query.add_argument("source", choices=[s.value for s in Source])
     query.add_argument("plate")
     mode = query.add_mutually_exclusive_group()
-    mode.add_argument("--interactive", action="store_true", help="Consulta asistida (SOAT o MTC) en navegador visible")
-    mode.add_argument("--stealth", action="store_true", help="Consulta desatendida (SOAT, SUNARP, MTC o SUTRAN)")
+    mode.add_argument("--interactive", action="store_true",
+                      help=f"Consulta asistida en navegador visible ({_mode_sources(service, QueryMode.ASSISTED)})")
+    mode.add_argument("--stealth", action="store_true",
+                      help=f"Consulta desatendida ({_mode_sources(service, QueryMode.STEALTH)})")
     query.add_argument("--timeout", type=int, default=180, help="Espera de consulta: 10 a 600 segundos")
     query.add_argument("--browser", choices=["msedge", "chrome", "chromium"], default="msedge")
     query.add_argument("--show-browser", action="store_true", help="Con --stealth, muestra el navegador")
@@ -168,104 +206,122 @@ def main() -> None:
     serve = commands.add_parser("serve", help="Inicia la API local")
     serve.add_argument("--host", default="127.0.0.1", help="Direccion de escucha; 0.0.0.0 expone en LAN")
     serve.add_argument("--port", type=int, default=8000)
-    argv = sys.argv[1:]
+    serve.add_argument("--env-file", type=Path, default=Path(".env"), help="Archivo de variables; por defecto .env")
+    serve.add_argument("--ssl-certfile", type=Path, help="Certificado TLS (PEM) para servir HTTPS")
+    serve.add_argument("--ssl-keyfile", type=Path, help="Clave privada TLS (PEM)")
+    commands.add_parser("token", help="Genera un token aleatorio para OBD_API_TOKEN")
+    return parser
+
+
+def _print_json(value: object) -> None:
+    print(json.dumps(value, indent=2, ensure_ascii=False))
+
+
+def _query(args: argparse.Namespace, parser: argparse.ArgumentParser, service: QueryService) -> None:
+    source = Source(args.source)
+    if args.interactive:
+        mode, options = QueryMode.ASSISTED, {"browser": args.browser}
+    elif args.stealth:
+        mode = QueryMode.STEALTH
+        options = {
+            "headless": not args.show_browser,
+            "real_chrome": args.real_chrome,
+            "profile": str(args.profile) if args.profile else None,
+            "proxy": args.proxy,
+        }
+    else:
+        mode, options = QueryMode.BASIC, {}
+    try:
+        result = service.run(source, args.plate, mode, timeout=args.timeout, **options)
+    except ValueError as exc:  # InvalidPlate, UnsupportedMode o timeout fuera de rango
+        parser.error(str(exc))
+    _print_json(result.to_dict())
+    if result.status != QueryStatus.SUCCESS:
+        raise SystemExit(1)
+
+
+def _sources(service: QueryService) -> None:
+    _print_json([
+        {**asdict(info), "source": info.source.value, "modes": [m.value for m in service.modes(info.source)]}
+        for info in service.sources()
+    ])
+
+
+def _inspect(args: argparse.Namespace, parser: argparse.ArgumentParser, service: QueryService) -> None:
+    info = service.source_info(Source(args.source))
+    print(f"Fuente: {info.name}\nURL: {info.url}")
+    if args.list:
+        return
+    from playwright.sync_api import Error
+
+    from obd_consultas.infrastructure.browser import inspect_source
+    try:
+        inspect_source(info)
+    except Error as exc:
+        parser.exit(1, f"No se pudo inspeccionar la fuente: {exc}\n")
+
+
+def _import_soat(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    from obd_consultas.providers.soat_dom import result_from_dom_capture
+    try:
+        plate = normalize_plate(args.plate)
+        capture = json.loads(args.file.read_text(encoding="utf-8-sig"))
+        result = result_from_dom_capture(capture, plate, imported=True)
+        encoded = json.dumps(result.to_dict(), ensure_ascii=False, indent=2)
+        if args.output and result.status == QueryStatus.SUCCESS:
+            with args.output.open("x", encoding="utf-8") as output:
+                output.write(encoded + "\n")
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    print(encoded)
+    if result.status != QueryStatus.SUCCESS:
+        raise SystemExit(1)
+
+
+def _install(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    try:
+        _install_browsers(args.force)
+    except Exception as exc:
+        parser.exit(1, f"No se pudieron instalar los navegadores: {exc}\n")
+
+
+def main(argv: list[str] | None = None) -> None:
+    # Windows suele abrir la consola en cp1252; Markdown y nombres traen Unicode.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+    service = build_service()
+    parser = _build_parser(service)
+    argv = sys.argv[1:] if argv is None else argv
     # Compatibilidad con el comando inicial: obd-consultas soat --list.
     if argv and argv[0] in {s.value for s in Source}:
         argv = ["inspect", *argv]
     args = parser.parse_args(argv)
-    service = build_service()
+    # Variables locales (token, proxy); las ya definidas en el entorno ganan.
+    from obd_consultas.config import load_env_file
+    try:
+        load_env_file(getattr(args, "env_file", None) or Path(".env"))
+    except ValueError as exc:
+        parser.exit(1, f"No se pudo leer el archivo .env: {exc}\n")
+    if getattr(args, "proxy", None) and "@" in args.proxy:
+        print(
+            "Aviso: el proxy trae credenciales en la linea de comandos y quedaran en el "
+            "historial. Usa OBD_PROXY_URL en .env.",
+            file=sys.stderr,
+        )
 
-    if args.command == "sources":
-        print(json.dumps([asdict(info) for info in service.sources()], indent=2, ensure_ascii=False))
-    elif args.command == "inspect":
-        info = service.source_info(Source(args.source))
-        print(f"Fuente: {info.name}\nURL: {info.url}")
-        if not args.list:
-            from playwright.sync_api import Error
-            from obd_consultas.infrastructure.browser import inspect_source
-            try:
-                inspect_source(info)
-            except Error as exc:
-                parser.exit(1, f"No se pudo inspeccionar la fuente: {exc}\n")
-    elif args.command == "query":
-        try:
-            if args.interactive:
-                if args.source not in {"soat", "mtc"}:
-                    parser.error("El modo asistido solo esta implementado para SOAT y MTC.")
-                if not 10 <= args.timeout <= 600:
-                    parser.error("--timeout debe estar entre 10 y 600 segundos.")
-                if args.source == "mtc":
-                    from obd_consultas.infrastructure.mtc_browser import query_mtc_interactive
-                    query = query_mtc_interactive
-                else:
-                    from obd_consultas.infrastructure.soat_browser import query_soat_interactive
-                    query = query_soat_interactive
-                result = query(normalize_plate(args.plate), args.timeout, args.browser)
-            elif args.stealth:
-                if args.source not in {"soat", "sunarp", "mtc", "sutran"}:
-                    parser.error("El modo sigiloso solo esta implementado para SOAT, SUNARP, MTC y SUTRAN.")
-                if not 10 <= args.timeout <= 600:
-                    parser.error("--timeout debe estar entre 10 y 600 segundos.")
-                if args.source == "sunarp":
-                    from obd_consultas.infrastructure.sunarp_stealth import query_sunarp_stealth
-                    query = query_sunarp_stealth
-                elif args.source == "mtc":
-                    from obd_consultas.infrastructure.mtc_stealth import query_mtc_stealth
-                    query = query_mtc_stealth
-                elif args.source == "sutran":
-                    from obd_consultas.infrastructure.sutran_stealth import query_sutran_stealth
-                    query = query_sutran_stealth
-                else:
-                    from obd_consultas.infrastructure.soat_stealth import query_soat_stealth
-                    query = query_soat_stealth
-                result = query(
-                    normalize_plate(args.plate),
-                    args.timeout,
-                    headless=not args.show_browser,
-                    real_chrome=args.real_chrome,
-                    profile=str(args.profile) if args.profile else None,
-                    proxy=args.proxy,
-                )
-            else:
-                result = service.query(Source(args.source), args.plate)
-        except InvalidPlate as exc:
-            parser.error(str(exc))
-        print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
-        if result.status != QueryStatus.SUCCESS:
-            raise SystemExit(1)
-    elif args.command == "extract":
-        _extract(args, parser)
-    elif args.command == "install-browsers":
-        try:
-            _install_browsers(args.force)
-        except Exception as exc:
-            parser.exit(1, f"No se pudieron instalar los navegadores: {exc}\n")
-    elif args.command == "import-soat":
-        from obd_consultas.providers.soat_dom import result_from_dom_capture
-        try:
-            plate = normalize_plate(args.plate)
-            capture = json.loads(args.file.read_text(encoding="utf-8-sig"))
-            result = result_from_dom_capture(capture, plate, imported=True)
-            encoded = json.dumps(result.to_dict(), ensure_ascii=False, indent=2)
-            if args.output and result.status == QueryStatus.SUCCESS:
-                with args.output.open("x", encoding="utf-8") as output:
-                    output.write(encoded + "\n")
-        except (OSError, ValueError) as exc:
-            parser.error(str(exc))
-        print(encoded)
-        if result.status != QueryStatus.SUCCESS:
-            raise SystemExit(1)
-    elif args.command == "serve":
-        import os
-        import uvicorn
-        loopback = {"127.0.0.1", "localhost", "::1"}
-        if args.host not in loopback and not os.environ.get("OBD_API_TOKEN", "").strip():
-            parser.exit(
-                1,
-                "Para exponer la API fuera de esta PC define OBD_API_TOKEN primero.\n"
-                "Ejemplo: $env:OBD_API_TOKEN='clave-larga'; obd-consultas serve --host 0.0.0.0\n",
-            )
-        uvicorn.run("obd_consultas.api.app:create_app", factory=True, host=args.host, port=args.port, access_log=False)
+    handlers = {
+        "token": lambda: print(__import__("secrets").token_urlsafe(48)),
+        "sources": lambda: _sources(service),
+        "inspect": lambda: _inspect(args, parser, service),
+        "query": lambda: _query(args, parser, service),
+        "extract": lambda: _extract(args, parser),
+        "install-browsers": lambda: _install(args, parser),
+        "import-soat": lambda: _import_soat(args, parser),
+        "serve": lambda: _serve(args, parser),
+    }
+    handlers[args.command]()
 
 
 if __name__ == "__main__":

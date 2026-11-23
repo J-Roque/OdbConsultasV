@@ -1,7 +1,7 @@
 """Contrato de resultados independiente de HTTP, MAUI y Playwright."""
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 import re
 
@@ -20,6 +20,18 @@ class QueryStatus(str, Enum):
     UNAVAILABLE = "unavailable"
     PARSE_ERROR = "parse_error"
     NOT_IMPLEMENTED = "not_implemented"
+
+
+class QueryMode(str, Enum):
+    """Como se ejecuta una consulta."""
+
+    BASIC = "basic"        # sin navegador: valida y responde el estado del conector
+    STEALTH = "stealth"    # desatendida: navegador sigiloso o HTTP + OCR
+    ASSISTED = "assisted"  # navegador visible: una persona resuelve la verificacion
+
+
+class UnsupportedMode(ValueError):
+    """La fuente no ofrece el modo de consulta pedido."""
 
 
 class InvalidPlate(ValueError):
@@ -49,7 +61,7 @@ class QueryResult:
     source_url: str
     message: str
     data: dict[str, object] = field(default_factory=dict)
-    queried_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    queried_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, object]:
         result = asdict(self)

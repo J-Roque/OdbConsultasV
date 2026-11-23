@@ -7,9 +7,10 @@ portal concreto. Sirve para SOAT DOM, SUNARP, MTC o cualquier tabla HTML.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 import re
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
 from obd_consultas.infrastructure.scrapling_engine import parse_html
 
@@ -169,7 +170,7 @@ def extract_table(
         cells = [" ".join(str(cell.get_all_text(strip=True)).split()) for cell in row.css("td")]
         if not cells:
             continue
-        records.append(dict(zip(header, cells)))
+        records.append(dict(zip(header, cells, strict=False)))
     return records
 
 

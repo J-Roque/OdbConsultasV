@@ -1,5 +1,6 @@
 """Fixtures sinteticos: no contienen registros de vehiculos reales."""
 import unittest
+
 from obd_consultas.domain.models import QueryStatus
 from obd_consultas.infrastructure.soat_browser import is_query_response
 from obd_consultas.providers.soat import SoatParseError, parse_soat, result_from_response

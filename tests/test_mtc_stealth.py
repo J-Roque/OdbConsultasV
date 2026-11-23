@@ -1,5 +1,4 @@
 """Pruebas del modo desatendido de MTC con dobles; no usan red ni OCR real."""
-import base64
 import json
 import unittest
 from unittest.mock import patch

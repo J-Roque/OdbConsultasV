@@ -1,0 +1,12 @@
+#!/bin/sh
+# Hook versionado. Activalo una vez con:  git config core.hooksPath .githooks
+set -e
+root="$(git rev-parse --show-toplevel)"
+if [ -x "$root/.venv/Scripts/python.exe" ]; then
+  py="$root/.venv/Scripts/python.exe"
+elif [ -x "$root/.venv/bin/python" ]; then
+  py="$root/.venv/bin/python"
+else
+  py="python"
+fi
+exec "$py" "$root/scripts/check_secrets.py"

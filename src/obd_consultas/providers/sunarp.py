@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 import binascii
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import hashlib
 import struct
 import unicodedata
@@ -258,7 +258,7 @@ def result_from_dom_capture(capture: object, plate: str) -> QueryResult:
         data = parse_sunarp(payload, plate, require_sede=False)
         data["capture"] = {
             "method": "stealth_dom",
-            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "captured_at": datetime.now(UTC).isoformat(),
         }
         message = "Resultado visible obtenido del portal SUNARP."
         if not data["plate_verified"]:

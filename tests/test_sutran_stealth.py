@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch
 
 from obd_consultas.domain.models import QueryStatus
 from obd_consultas.infrastructure import sutran_stealth
@@ -22,6 +21,8 @@ class FakePage:
         self.response_listener = callback
     def wait_for_selector(self, *args, **kwargs):
         pass
+    def evaluate(self, script):
+        return "token-sintetico"
     def locator(self, selector):
         return self
     def fill(self, plate, **kwargs):

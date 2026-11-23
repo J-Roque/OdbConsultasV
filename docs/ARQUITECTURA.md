@@ -33,17 +33,21 @@ flowchart TD
 | Modulo | Responsabilidad |
 |---|---|
 | domain | Contratos y reglas sin dependencias externas |
-| application | Normalizar la placa y seleccionar el conector |
-| providers | Interfaz, catalogo y futuros extractores por fuente |
-| infrastructure | Navegador y, cuando se necesiten, clientes HTTP |
+| domain/models | `Source`, `QueryMode` (`basic`, `stealth`, `assisted`), `QueryStatus`, `QueryResult` |
+| application | `QueryService.run(source, plate, mode)`: normaliza, valida modo y timeout, despacha |
+| providers | Parsers por fuente y `VehicleProvider` (modo `basic`, sin navegador) |
+| infrastructure | Captura por portal: `<fuente>_stealth.py`, `<fuente>_browser.py` |
+| infrastructure/connector_common | Lo compartido: timeout, JSON seguro, sello de captura, errores de sesion |
 | infrastructure/scrapling_engine | Envoltura de Scrapling: sesion sigilosa, HTTP y parser |
 | infrastructure/extraction | Reglas declarativas de extraccion y Markdown |
 | api | Validar peticiones HTTP y serializar resultados |
 | cli | Comandos, salida JSON y servidor local |
-| bootstrap | Construir el registro de conectores |
+| bootstrap | Registro de providers y de runners por `(fuente, modo)`, con import diferido |
 
-El dominio no importa FastAPI ni Playwright. Los puntos de entrada comparten el
-servicio; no duplican extraccion. Los selectores, cookies y parsers de cada web
+El dominio no importa FastAPI ni Playwright. La CLI y la API **solo** hablan con
+`QueryService`: no importan modulos de `infrastructure/` ni tienen `if source == ...`.
+Las fuentes que admite cada modo salen de `QueryService.modes()` / `sources_for()`,
+y `/v1/sources` las expone en `modes` para que la APK no las codifique. Los selectores, cookies y parsers de cada web
 perteneceran al conector de esa fuente. No se inventan selectores antes de inspeccionar.
 
 ## Contrato de consulta
@@ -130,12 +134,19 @@ El inventario de fuentes objetivo, sus estados y el orden sugerido estan en
 ## Como implementar una fuente
 
 1. Inspeccionar el formulario y verificar como se entrega el resultado.
-2. Crear `providers/<fuente>.py` con `info` y `query(plate)` conforme a `VehicleProvider`.
-3. Definir campos normalizados, diferenciar ausencia de datos de errores y poner limites de espera.
-4. Extraer el parser a una funcion testeable; describir filas con `Field`/`extract_rows` y usar fixtures sinteticos.
-5. Registrar el conector en `bootstrap.py`, reemplazando solo su `PendingProvider`.
-6. Probar con una placa autorizada y documentar fecha, campos soportados y limitaciones.
-7. Marcar `implemented=True` solo cuando el conector consulte realmente la fuente.
+2. Agregar el valor a `Source` y su `SourceInfo` a `providers/catalog.py`.
+3. Crear `providers/<fuente>.py`: parser puro (`result_from_response`), fabrica
+   `<fuente>_result` y un provider con `info` y `query(plate)` (modo `basic`).
+4. Crear `infrastructure/<fuente>_stealth.py` con `query_<fuente>_stealth(plate, timeout, **opciones)`.
+   Usar `connector_common` (`validate_timeout`, `guarded`, `stealth_options`,
+   `result_from_api`, `result_from_error`, `session_failure`) y dejar en el modulo
+   solo lo propio del portal: selectores, `_observe` y `_result_from_holder`.
+5. Registrar en `bootstrap.py`: el provider en `PROVIDERS` y cada modo en `RUNNERS`
+   con `_lazy("<fuente>_stealth", "query_<fuente>_stealth")`. CLI y API lo toman solas.
+6. Tests con fixtures sinteticos del parser y de `_result_from_holder`; actualizar
+   `test_bootstrap_mode_matrix`.
+7. Probar con una placa autorizada, documentar en `docs/<FUENTE>.md` y marcar
+   `implemented=True` solo cuando el conector consulte realmente la fuente.
 
 Las tres fuentes estan implementadas y pueden ejecutarse de forma desatendida.
 MTC usa OCR local (`ddddocr`) sobre el captcha de imagen, con reintentos

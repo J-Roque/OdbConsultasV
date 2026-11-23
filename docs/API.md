@@ -6,36 +6,47 @@ como una APK solo hace HTTP; el navegador sigiloso se ejecuta siempre en la PC.
 ## Iniciar
 
 ```powershell
+Copy-Item .env.example .env
+uv run obd-consultas token        # copia el valor a OBD_API_TOKEN en .env
 uv run obd-consultas serve
 ```
 
-Por defecto escucha en `http://127.0.0.1:8000`. Documentacion interactiva:
-`http://127.0.0.1:8000/docs`.
-
-Para que el telefono pueda conectarse por LAN:
+Por defecto escucha en `http://127.0.0.1:8000`. Para que el telefono se conecte
+por LAN:
 
 ```powershell
-$env:OBD_API_TOKEN = "clave-larga-aleatoria"
 uv run obd-consultas serve --host 0.0.0.0
 ```
 
-Si `--host` no es loopback y no hay `OBD_API_TOKEN`, el comando se niega a
-arrancar. Las rutas `/v1/*` exigen la cabecera `X-OBD-Token` cuando la variable
-esta definida; `/health` queda publico para comprobar que el proceso vive.
+## Seguridad
 
-La API usa HTTP sin cifrar: exponerla solo en una red de confianza. El token no
-se escribe en logs, pero cualquier dispositivo de la LAN que lo conozca puede
-consultar. No es una solucion para Internet.
+| Control | Comportamiento | Variable |
+|---|---|---|
+| Token | Obligatorio siempre, minimo 32 caracteres, comparado en tiempo constante. Sin token valido `/v1/*` responde **503** (fail-closed), aunque la app se arranque con otro comando de Uvicorn. | `OBD_API_TOKEN` |
+| Limite de peticiones | Por IP, ventana de 60 s, se aplica antes del token (frena fuerza bruta). Responde **429** con `Retry-After`. | `OBD_API_RATE_LIMIT` (30) |
+| Consultas simultaneas | Trabajos `pending`/`running` a la vez. Excedido: **429**. | `OBD_API_MAX_ACTIVE_JOBS` (5) |
+| Documentacion | `/docs`, `/redoc` y `/openapi.json` responden 404. | `OBD_API_DOCS=1` |
+| Consulta asistida | `POST /v1/queries/assisted` abre un navegador visible en la PC: responde **403**. | `OBD_API_ASSISTED=1` |
+| Cabeceras | `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`; sin cabecera `Server`. | - |
+| Logs | Sin access log: no se registran placas, tokens ni respuestas. | - |
+| TLS | `--ssl-certfile` y `--ssl-keyfile`, o un proxy inverso con HTTPS. Sin TLS, `serve` advierte al exponer fuera de loopback. | - |
+
+`/health` es la unica ruta publica. Sin TLS la API sirve solo para una red de
+confianza: cualquiera que intercepte el trafico ve el token. **No exponerla a
+Internet** sin HTTPS y sin revisar [SECURITY.md](../SECURITY.md).
+
+En la APK, no escribas el token en el codigo fuente: guardalo con
+`EncryptedSharedPreferences` (o Android Keystore) y pidelo al usuario la primera vez.
 
 ## Endpoints
 
 | Metodo | Ruta | Uso |
 |---|---|---|
 | GET | `/health` | `{"status":"ok"}` |
-| GET | `/v1/sources` | Fuentes y estado del conector |
+| GET | `/v1/sources` | Fuentes, estado del conector y `modes` disponibles (`basic`, `stealth`, `assisted`) |
 | POST | `/v1/queries` | Contrato basico: **no consulta**, devuelve `requires_interaction` |
-| POST | `/v1/queries/stealth` | Encola la consulta desatendida (SOAT, SUNARP, MTC o SUTRAN) y devuelve un `job_id` |
-| POST | `/v1/queries/assisted` | Encola la consulta asistida (SOAT o MTC) con navegador visible |
+| POST | `/v1/queries/stealth` | Encola la consulta desatendida y devuelve un `job_id`. Solo fuentes con `stealth` en `modes` |
+| POST | `/v1/queries/assisted` | Encola la consulta asistida con navegador visible. Solo fuentes con `assisted`; `browser`: `msedge`, `chrome` o `chromium` |
 | GET | `/v1/jobs/{job_id}` | Estado y resultado del trabajo |
 
 ## Flujo recomendado para la APK
@@ -51,6 +62,9 @@ consultar. No es una solucion para Internet.
 ```
 
 `source` admite `soat`, `sunarp` o `mtc`. `timeout` va de 10 a 600 segundos.
+`sutran` acepta el cuerpo pero es experimental: su portal exige un token de
+Turnstile que hoy no se obtiene de forma desatendida, por lo que devuelve
+`requires_interaction`. Ver [SUTRAN.md](SUTRAN.md).
 El caso de MTC se resuelve con OCR local; el campo `browser` no aplica.
 `/v1/queries/assisted` permite `soat` o `mtc` y abre el navegador visible:
 
@@ -94,6 +108,35 @@ esperan su turno.
 4. Leer `result.status` antes que el HTTP. Los estados son `success`,
    `not_found`, `requires_interaction`, `unavailable`, `parse_error` y
    `not_implemented`. HTTP 200 significa "resultado estructurado", no exito.
+
+## Contrato de `data`
+
+`result.data` depende de `source` y `status`. En `success` y `not_found` sigue el
+contrato de su fuente, definido en
+[`src/obd_consultas/contracts.py`](../src/obd_consultas/contracts.py); en los
+demas estados llega vacio (`{}`).
+
+| Fuente | `success` | `not_found` |
+|---|---|---|
+| `soat` | `SoatData` | `SoatData` (`encontrado=false`, `certificados=[]`) |
+| `sunarp` | `SunarpData` | `SunarpNotFound` (`{"encontrado": false}`) |
+| `mtc` | `MtcData` | `MtcData` (`registros=[]`) |
+| `sutran` | `SutranData` (experimental) | `SutranData` |
+
+Reglas: fechas `AAAA-MM-DD`; `null` significa que la fuente no informo el dato;
+`capture.method` indica como se obtuvo. En SUNARP, `vehiculo` trae los campos de
+la tarjeta leidos por OCR con su `confianza` (0-1), `propietarios.valor` es una
+lista y, si el OCR falla, `vehiculo` es `{"disponible": false, "motivo": ...}`.
+
+Los esquemas completos estan en `/openapi.json` (con `OBD_API_DOCS=1`). Para
+generar el cliente Kotlin de la APK:
+
+```powershell
+npx @openapitools/openapi-generator-cli generate -i http://127.0.0.1:8000/openapi.json -g kotlin -o cliente-kotlin
+```
+
+Los tests de `tests/test_contracts.py` fallan si un parser cambia la forma de
+`data`: cualquier cambio del contrato es deliberado y debe anotarse en el CHANGELOG.
 
 ## Resultado de SUNARP
 
@@ -145,7 +188,7 @@ desatendido. Ver [MTC.md](MTC.md).
 
 ```kotlin
 val base = "http://192.168.1.10:8000"
-val token = "clave-larga-aleatoria"
+val token = secureStorage.getString("obd_token")  // nunca en el codigo fuente
 val client = OkHttpClient()
 
 val body = """{"source":"sunarp","plate":"ABC123","timeout":180}"""
@@ -169,6 +212,9 @@ val job = client.newCall(request).execute().use { response ->
 | Situacion | Respuesta |
 |---|---|
 | Token ausente o incorrecto | 401 |
+| API sin `OBD_API_TOKEN` valido | 503 |
+| Consulta asistida deshabilitada | 403 |
+| Demasiadas peticiones o consultas en curso | 429 + `Retry-After` |
 | Fuente, placa o timeout invalidos | 422 |
 | `job_id` desconocido | 404 |
 | Error inesperado del conector | Trabajo `done` con `result.status = unavailable` |
