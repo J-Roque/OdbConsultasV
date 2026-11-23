@@ -24,3 +24,37 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/obd_consultas"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+extend-exclude = [".cache", "artifacts"]
+
+[tool.ruff.lint]
+# E/F/W: errores y estilo base; I: orden de imports; B: bugs comunes;
+# UP: sintaxis moderna; S: seguridad (bandit); SIM: simplificaciones.
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM"]
+ignore = [
+    "E501",   # el formateo de lineas largas no bloquea
+    "S101",   # assert se usa en tests
+    "SIM105", # try/except/pass explicito es mas claro en los conectores
+    "UP038",  # isinstance con tupla es mas rapido; la regla esta obsoleta en ruff
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B", "SIM117", "E731"]
+"scripts/check_secrets.py" = ["S603", "S607"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["obd_consultas"]
+force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/obd_consultas"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true

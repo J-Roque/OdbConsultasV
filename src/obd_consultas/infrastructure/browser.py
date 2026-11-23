@@ -1,5 +1,6 @@
 """Herramienta de investigacion manual, separada del flujo HTTP."""
 from playwright.sync_api import sync_playwright
+
 from obd_consultas.domain.models import SourceInfo
 
 

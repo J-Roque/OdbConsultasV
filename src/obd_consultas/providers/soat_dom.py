@@ -1,6 +1,7 @@
 """Adaptador para capturas del resultado visible de APESEG; no importa sesiones."""
 import re
 from urllib.parse import urlparse
+
 from obd_consultas.domain.models import QueryStatus, normalize_plate
 from obd_consultas.providers.soat import SoatParseError, parse_soat, soat_result
 
@@ -106,6 +107,8 @@ def result_from_dom_capture(capture: object, plate: str, *, imported: bool = Fal
         data = parse_dom_capture(capture, plate)
     except SoatParseError as exc:
         return soat_result(plate, QueryStatus.PARSE_ERROR, str(exc))
-    data['capture']['method'] = 'imported_browser_dom' if imported else 'browser_dom'
+    capture = data['capture']
+    assert isinstance(capture, dict)  # parse_dom_capture siempre la crea
+    capture['method'] = 'imported_browser_dom' if imported else 'browser_dom'
     message = 'Captura importada y procesada; no se realizo una consulta nueva.' if imported else 'Resultado visible obtenido del portal APESEG.'
     return soat_result(plate, QueryStatus.SUCCESS, message, data)

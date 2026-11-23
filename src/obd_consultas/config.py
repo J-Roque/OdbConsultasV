@@ -6,9 +6,9 @@ definidas en el entorno tienen prioridad y nunca se sobrescriben.
 """
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 import os
 from pathlib import Path
-from typing import MutableMapping
 
 
 def parse_env(text: str) -> dict[str, str]:

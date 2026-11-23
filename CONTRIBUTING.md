@@ -67,7 +67,7 @@ git push origin v0.2.0
 En *Settings > Branches > Add rule* (o *Rulesets*) para `main` y `develop`:
 
 - Require a pull request before merging.
-- Require status checks to pass: `Secretos`, `Tests`.
+- Require status checks to pass: `Secretos`, `Lint`, `Tests`.
 - Block force pushes y deletions.
 - (`main`) Require linear history desactivado, para permitir merge commits de release.
 
@@ -92,7 +92,8 @@ incompatible: `feat(api)!: exigir token siempre`.
 
 ```powershell
 uv run --extra dev python -m unittest discover -s tests -v
-uv run python -m compileall -q src tests scripts
+uvx ruff@0.8.4 check
+uvx mypy==1.13.0 --python-executable .venv/Scripts/python.exe
 python scripts/check_secrets.py --all
 ```
 

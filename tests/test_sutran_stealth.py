@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch
 
 from obd_consultas.domain.models import QueryStatus
 from obd_consultas.infrastructure import sutran_stealth

@@ -7,15 +7,23 @@ una imagen PNG de la tarjeta TIVE, no una ficha JSON con los datos del vehiculo.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from collections.abc import Callable
+from functools import partial
 from time import monotonic
-from typing import Any, Callable
+from typing import Any
 
 from obd_consultas.domain.models import QueryResult, QueryStatus, normalize_plate
-from obd_consultas.infrastructure.scrapling_engine import (
-    ScraplingUnavailable,
-    stealth_session,
+from obd_consultas.infrastructure.connector_common import (
+    guarded,
+    is_timeout,
+    result_from_api,
+    result_from_error,
+    safe_json,
+    session_failure,
+    stealth_options,
+    validate_timeout,
 )
+from obd_consultas.infrastructure.scrapling_engine import stealth_session
 from obd_consultas.infrastructure.sunarp_ocr import attach_tive_ocr
 from obd_consultas.providers.sunarp import (
     SUNARP_FORM_URL,
@@ -43,17 +51,6 @@ CAPTURE_SCRIPT = r"""() => {
 }"""
 
 
-def _is_timeout(error: BaseException) -> bool:
-    return error.__class__.__name__ == "TimeoutError"
-
-
-def _safe_json(response: Any) -> Any:
-    try:
-        return response.json()
-    except Exception:
-        return None
-
-
 def _capture_dom(page: Any) -> Any:
     return page.evaluate(CAPTURE_SCRIPT)
 
@@ -64,7 +61,7 @@ def _observe(page: Any, plate: str, timeout_ms: int, holder: dict[str, Any]) -> 
     def on_response(response: Any) -> None:
         if "getDatosVehiculo" in str(getattr(response, "url", "")):
             holder["status"] = getattr(response, "status", None)
-            holder["payload"] = _safe_json(response)
+            holder["payload"] = safe_json(response)
 
     page.on("response", on_response)
     page.wait_for_selector("#nroPlaca", timeout=30_000)
@@ -93,7 +90,7 @@ def _observe(page: Any, plate: str, timeout_ms: int, holder: dict[str, Any]) -> 
                 # El aviso de SweetAlert bloquea el formulario: hay que cerrarlo.
                 try:
                     page.locator(".swal2-confirm").click(timeout=2_000)
-                except Exception:
+                except Exception:  # noqa: S110 - si el aviso ya se cerro, no hay nada que hacer
                     pass
                 if attempts < max_attempts:
                     attempts += 1
@@ -103,22 +100,15 @@ def _observe(page: Any, plate: str, timeout_ms: int, holder: dict[str, Any]) -> 
         page.wait_for_timeout(500)
 
 
+def _run_observe(page: Any, *, plate: str, timeout_ms: int, holder: dict[str, Any]) -> None:
+    # Se resuelve en cada llamada para que los tests puedan sustituir ``_observe``.
+    _observe(page, plate, timeout_ms, holder)
+
+
 def _result_from_holder(plate: str, holder: dict[str, Any]) -> QueryResult:
     """Traduce lo observado a un estado del contrato, sin adivinar datos."""
     if "status" in holder:
-        try:
-            status = int(holder["status"])
-        except (TypeError, ValueError):
-            status = 0
-        result = result_from_response(plate, status, holder.get("payload"))
-        if result.status in {QueryStatus.SUCCESS, QueryStatus.NOT_FOUND}:
-            result.data.setdefault(
-                "capture",
-                {
-                    "method": "stealth_api",
-                    "captured_at": datetime.now(timezone.utc).isoformat(),
-                },
-            )
+        result = result_from_api(holder, plate, result_from_response)
         if result.status == QueryStatus.SUCCESS:
             payload = holder.get("payload")
             model = payload.get("model") if isinstance(payload, dict) else None
@@ -142,24 +132,7 @@ def _result_from_holder(plate: str, holder: dict[str, Any]) -> QueryResult:
             QueryStatus.REQUIRES_INTERACTION,
             "El portal exige resolver la verificacion Turnstile. Usa --show-browser o el navegador visible.",
         )
-    error = holder.get("error")
-    if error is not None and _is_timeout(error):
-        return sunarp_result(
-            plate,
-            QueryStatus.REQUIRES_INTERACTION,
-            "No se recibio el resultado a tiempo. La verificacion puede seguir pendiente.",
-        )
-    if error is not None:
-        return sunarp_result(
-            plate,
-            QueryStatus.UNAVAILABLE,
-            "El navegador no pudo completar el formulario del portal.",
-        )
-    return sunarp_result(
-        plate,
-        QueryStatus.REQUIRES_INTERACTION,
-        "El portal no entrego el resultado. Puede requerir verificacion manual.",
-    )
+    return result_from_error(plate, holder, sunarp_result)
 
 
 def query_sunarp_stealth(
@@ -179,8 +152,7 @@ def query_sunarp_stealth(
     reutiliza un perfil de navegador si el usuario lo pide expresamente.
     """
     plate = normalize_plate(plate)
-    if not 10 <= timeout <= 600:
-        raise ValueError("El tiempo de espera debe estar entre 10 y 600 segundos.")
+    validate_timeout(timeout)
 
     timeout_ms = timeout * 1000
     # Turnstile no se resuelve siempre en el primer navegador. Con un timeout
@@ -189,61 +161,37 @@ def query_sunarp_stealth(
     per_attempt_ms = max(30_000, timeout_ms // attempts)
     browser_timeout = min(max(per_attempt_ms, BROWSER_TIMEOUT_MS), 120_000)
 
-    options = {
-        "headless": headless,
-        "real_chrome": real_chrome,
-        "solve_cloudflare": solve_cloudflare,
-        "timeout": browser_timeout,
-        "retries": 1,
-        "profile": profile,
-        "proxy": proxy,
-    }
+    options = stealth_options(
+        headless=headless,
+        real_chrome=real_chrome,
+        solve_cloudflare=solve_cloudflare,
+        timeout_ms=browser_timeout,
+        profile=profile,
+        proxy=proxy,
+    )
 
-    for attempt in range(1, attempts + 1):
+    for _attempt in range(attempts):
         holder: dict[str, Any] = {}
-
-        def page_action(page: Any) -> None:
-            try:
-                _observe(page, plate, per_attempt_ms, holder)
-            except Exception as exc:  # Scrapling silencia esta excepcion
-                holder["error"] = exc
-
+        action = guarded(
+            partial(_run_observe, plate=plate, timeout_ms=per_attempt_ms, holder=holder), holder
+        )
         try:
             with session_factory(**options) as session:
                 session.fetch(
                     SUNARP_FORM_URL,
-                    page_action=page_action,
+                    page_action=action,
                     timeout=browser_timeout,
                     wait=(2_000 if solve_cloudflare else 0),
                 )
-        except ScraplingUnavailable as exc:
-            return sunarp_result(plate, QueryStatus.UNAVAILABLE, str(exc))
         except Exception as exc:
-            message = str(exc).lower()
-            if "executable" in message and "exist" in message:
-                return sunarp_result(
-                    plate,
-                    QueryStatus.UNAVAILABLE,
-                    "Falta el navegador sigiloso. Ejecuta: obd-consultas install-browsers",
-                )
-            if "cloudflare" in message:
-                return sunarp_result(
-                    plate,
-                    QueryStatus.REQUIRES_INTERACTION,
-                    "Cloudflare no se pudo resolver automaticamente. Puede requerir intervencion.",
-                )
-            return sunarp_result(
-                plate,
-                QueryStatus.UNAVAILABLE,
-                "No se pudo completar la sesion sigilosa. Comprueba el navegador y la conexion.",
-            )
+            return session_failure(plate, exc, sunarp_result)
 
         result = _result_from_holder(plate, holder)
         if result.status != QueryStatus.REQUIRES_INTERACTION:
             return result
         # Un fallo de navegador no se arregla abriendo otra sesion.
         error = holder.get("error")
-        if error is not None and not _is_timeout(error):
+        if error is not None and not is_timeout(error):
             return result
 
     return sunarp_result(

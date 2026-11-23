@@ -1,6 +1,6 @@
 import importlib.util
-import unittest
 from pathlib import Path
+import unittest
 
 _PATH = Path(__file__).resolve().parents[1] / "scripts" / "check_secrets.py"
 _spec = importlib.util.spec_from_file_location("check_secrets", _PATH)

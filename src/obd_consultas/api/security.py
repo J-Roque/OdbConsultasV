@@ -14,15 +14,15 @@ Reglas:
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import hmac
 import os
 import threading
 import time
-from typing import Callable, Mapping
 
-TOKEN_HEADER = "X-OBD-Token"
-TOKEN_ENV = "OBD_API_TOKEN"
+TOKEN_HEADER = "X-OBD-Token"  # noqa: S105 - nombre de cabecera, no un secreto
+TOKEN_ENV = "OBD_API_TOKEN"  # noqa: S105 - nombre de variable, no un secreto
 MIN_TOKEN_LENGTH = 32
 TOKEN_HINT = (
     "Genera uno con: uv run obd-consultas token  "
@@ -67,7 +67,7 @@ class ApiSettings:
     max_active_jobs: int = 5
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> "ApiSettings":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> ApiSettings:
         env = os.environ if env is None else env
         return cls(
             api_token=env.get(TOKEN_ENV, "").strip() or None,

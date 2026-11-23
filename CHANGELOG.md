@@ -27,6 +27,20 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   token Turnstile que aun no se obtiene de forma desatendida.
 - **Incompatible:** clientes de la API deben enviar `X-OBD-Token` tambien en loopback.
 
+### Refactor
+- `QueryService.run(source, plate, mode)` es la unica puerta de consulta; la CLI y la
+  API ya no eligen conectores con `if source == ...`.
+- Modos registrados en `bootstrap.RUNNERS` por `(fuente, modo)` con import diferido.
+- Codigo comun de los conectores en `infrastructure/connector_common.py`
+  (antes duplicado en SOAT, SUNARP, SUTRAN y MTC).
+- `ruff` y `mypy` configurados en `pyproject.toml` y ejecutados en CI.
+
+### Cambiado (API)
+- `/v1/sources` incluye `modes` por fuente.
+- Fuente no admitida en un modo: 422 con la lista de fuentes validas.
+- `browser` en `/v1/queries/assisted` restringido a `msedge`, `chrome` o `chromium`.
+- `create_app()` ya no acepta `stealth_runner`/`assisted_runner`: se inyecta un `QueryService`.
+
 ### Eliminado
 - `SECURITY-REVIEW.md`, reemplazado por `SECURITY.md`.
 

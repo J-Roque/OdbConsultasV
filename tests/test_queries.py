@@ -1,5 +1,5 @@
-import unittest
 from dataclasses import replace
+import unittest
 
 from obd_consultas.application.queries import QueryService
 from obd_consultas.bootstrap import build_service

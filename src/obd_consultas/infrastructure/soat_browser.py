@@ -1,9 +1,13 @@
 """Consulta asistida: lee el resultado visible aunque no se capture la respuesta JSON."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import sys
+from typing import Any
 from urllib.parse import unquote, urlparse
+
 from playwright.sync_api import Error, TimeoutError, sync_playwright
+
 from obd_consultas.domain.models import QueryResult, QueryStatus, normalize_plate
+from obd_consultas.infrastructure.connector_common import validate_timeout
 from obd_consultas.providers.soat import SOAT_INFO, soat_result
 from obd_consultas.providers.soat_dom import CAPTURE_SCRIPT, result_from_dom_capture
 
@@ -22,17 +26,16 @@ def capture_result(page) -> dict:
     if toggle.count():
         root.locator(".soat-timeline__item").first.wait_for(timeout=5_000)
     capture = root.evaluate(CAPTURE_SCRIPT)
-    capture["captured_at"] = datetime.now(timezone.utc).isoformat()
+    capture["captured_at"] = datetime.now(UTC).isoformat()
     return capture
 
 
 def query_soat_interactive(plate: str, timeout: int = 180, browser_channel: str = "msedge") -> QueryResult:
     plate = normalize_plate(plate)
-    if not 10 <= timeout <= 600:
-        raise ValueError("El tiempo de espera debe estar entre 10 y 600 segundos.")
+    validate_timeout(timeout)
     try:
         with sync_playwright() as pw:
-            options = {"headless": False}
+            options: dict[str, Any] = {"headless": False}
             if browser_channel != "chromium":
                 options["channel"] = browser_channel
             browser = pw.chromium.launch(**options)
