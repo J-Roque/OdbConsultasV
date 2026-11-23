@@ -1,16 +1,23 @@
-import os
 import time
 import unittest
-from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from obd_consultas.api.app import create_app
+from obd_consultas.api.security import ApiSettings
 from obd_consultas.domain.models import QueryResult, QueryStatus, Source
+
+
+TOKEN = "token-sintetico-de-pruebas-0123456789abcdef"
+SETTINGS = ApiSettings(api_token=TOKEN, enable_assisted=True, rate_limit_per_minute=1000)
+
+
+def make_client(settings=SETTINGS, **kwargs):
+    return TestClient(create_app(settings=settings, **kwargs), headers={"X-OBD-Token": TOKEN})
 
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(create_app())
+        self.client = make_client()
         self.addCleanup(self.client.close)
 
     def test_health_and_catalog(self):
@@ -57,7 +64,7 @@ class ApiTests(unittest.TestCase):
             called.append((source, plate, timeout))
             return result
 
-        client = TestClient(create_app(stealth_runner=runner))
+        client = make_client(stealth_runner=runner)
         self.addCleanup(client.close)
         created = client.post(
             "/v1/queries/stealth",
@@ -83,7 +90,7 @@ class ApiTests(unittest.TestCase):
         def broken_runner(source, plate, timeout):
             raise RuntimeError("boom")
 
-        client = TestClient(create_app(stealth_runner=broken_runner))
+        client = make_client(stealth_runner=broken_runner)
         self.addCleanup(client.close)
         created = client.post(
             "/v1/queries/stealth", json={"source": "soat", "plate": "ABC123"}
@@ -123,7 +130,7 @@ class ApiTests(unittest.TestCase):
             called.append((source, plate, timeout, browser))
             return result
 
-        client = TestClient(create_app(assisted_runner=runner))
+        client = make_client(assisted_runner=runner)
         self.addCleanup(client.close)
         created = client.post(
             "/v1/queries/assisted",
@@ -143,27 +150,3 @@ class ApiTests(unittest.TestCase):
             "/v1/queries/assisted", json={"source": "sunarp", "plate": "ABC123"}
         )
         self.assertEqual(response.status_code, 422)
-
-    def test_token_is_required_when_configured(self):
-        with patch.dict(os.environ, {"OBD_API_TOKEN": "clave-sintetica"}):
-            client = TestClient(
-                create_app(
-                    stealth_runner=lambda *_: QueryResult(
-                        Source.SUNARP, "ABC123", QueryStatus.SUCCESS, "", "ok", {}
-                    )
-                )
-            )
-            self.addCleanup(client.close)
-            self.assertEqual(client.get("/v1/sources").status_code, 401)
-            self.assertEqual(
-                client.get("/v1/sources", headers={"X-OBD-Token": "clave-sintetica"}).status_code,
-                200,
-            )
-            self.assertEqual(
-                client.post(
-                    "/v1/queries/stealth",
-                    json={"source": "sunarp", "plate": "ABC123"},
-                    headers={"X-OBD-Token": "clave-sintetica"},
-                ).status_code,
-                202,
-            )

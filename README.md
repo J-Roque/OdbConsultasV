@@ -138,37 +138,45 @@ Ver [Scrapling](docs/SCRAPLING.md).
 
 ## API local
 
+La API exige token **siempre** (tambien en `127.0.0.1`). Configuralo una vez:
+
 ```powershell
+Copy-Item .env.example .env
+uv run obd-consultas token          # pega el valor en OBD_API_TOKEN dentro de .env
 uv run obd-consultas serve
 ```
 
-Documentacion interactiva: http://127.0.0.1:8000/docs
+`serve` lee `.env` (las variables ya definidas en la sesion ganan) y se niega a
+arrancar sin un token de al menos 32 caracteres. `/docs` esta desactivado; para
+desarrollo define `OBD_API_DOCS=1`. Todas las variables: [.env.example](.env.example).
 
 `POST /v1/queries` solo valida y devuelve `requires_interaction`: no consulta los
 portales. Para obtener datos reales desde una APK, usar el puente asincrono:
 
 ```powershell
 $body = @{ source = 'sunarp'; plate = 'ABC123'; timeout = 180 } | ConvertTo-Json
-$job = Invoke-RestMethod http://127.0.0.1:8000/v1/queries/stealth -Method Post -ContentType 'application/json' -Body $body
+$headers = @{ 'X-OBD-Token' = $env:OBD_API_TOKEN }
+$job = Invoke-RestMethod http://127.0.0.1:8000/v1/queries/stealth -Method Post -Headers $headers -ContentType 'application/json' -Body $body
 $job.poll_url                      # /v1/jobs/{job_id}
-Invoke-RestMethod "http://127.0.0.1:8000$($job.poll_url)"
+Invoke-RestMethod "http://127.0.0.1:8000$($job.poll_url)" -Headers $headers
 ```
 
 Hacer polling hasta que `state` sea `done`; `result` trae el `QueryResult` con
 los datos normalizados. MTC usa el mismo `/v1/queries/stealth` con
 `source='mtc'` y resuelve el captcha con OCR local; `/v1/queries/assisted` queda
-como respaldo con navegador visible. Contrato completo, ejemplo Kotlin y
+como respaldo con navegador visible (desactivado salvo `OBD_API_ASSISTED=1`). Contrato completo, ejemplo Kotlin y
 configuracion para telefono: [API.md](docs/API.md).
 
-Para exponer en LAN:
+Para exponer en LAN (con el token ya en `.env`):
 
 ```powershell
-$env:OBD_API_TOKEN = "clave-larga-aleatoria"
 uv run obd-consultas serve --host 0.0.0.0
+uv run obd-consultas serve --host 0.0.0.0 --ssl-certfile cert.pem --ssl-keyfile key.pem
 ```
 
-Las rutas `/v1/*` exigen la cabecera `X-OBD-Token`. La API usa HTTP sin cifrar:
-solo en redes de confianza. La API nunca abre Playwright Inspector ni espera que
+Sin `--ssl-*` la API va por HTTP sin cifrar y `serve` lo advierte: solo en redes
+de confianza. Controles de seguridad, limites y reglas de datos:
+[SECURITY.md](SECURITY.md). La API nunca abre Playwright Inspector ni espera que
 alguien complete un formulario.
 
 ## Estructura
@@ -195,10 +203,18 @@ src/obd_consultas/
   providers/pending.py     Respuesta explicita para conectores pendientes
   infrastructure/browser.py  Inspeccion manual con Playwright
   api/app.py               Rutas HTTP y contratos OpenAPI
+  api/security.py          Token fail-closed, limite de peticiones y flags
+  config.py                Lectura de .env sin dependencias
   cli.py                   Comandos de consola
   bootstrap.py             Ensambla servicio y conectores
   __main__.py              Entrada python -m obd_consultas
 tests/                    Pruebas de servicio, API, extraccion y modo sigiloso
+scripts/check_secrets.py   Escaner de secretos del hook pre-commit y CI
+.githooks/                 Hooks versionados (pre-commit, commit-msg)
+.github/                   CI, plantilla de PR y Dependabot
+SECURITY.md                Politica de seguridad, secretos y datos personales
+CONTRIBUTING.md            Git Flow, convenciones de commits y checklist
+CHANGELOG.md               Historial de versiones
 docs/PLAN.md               Inventario de fuentes, estados y orden sugerido
 docs/ARQUITECTURA.md       Decisiones, flujo y plan de implementacion
 docs/API.md                Contrato HTTP, trabajos sigilosos y uso desde APK
@@ -213,6 +229,13 @@ docs/SCRAPLING.md          Motor de scraping, comandos y limites
 
 ```powershell
 uv run --extra dev python -m unittest discover -s tests -v
+```
+
+Tras clonar, activa los hooks del repositorio (revisan secretos y el formato
+del mensaje de commit). Detalles en [CONTRIBUTING.md](CONTRIBUTING.md):
+
+```powershell
+git config core.hooksPath .githooks
 ```
 
 Consulta [la arquitectura](docs/ARQUITECTURA.md) para agregar el primer conector
