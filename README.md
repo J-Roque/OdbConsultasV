@@ -43,12 +43,15 @@ datos ni abrir ventanas.
 | SBS | Consulta publica por placa o aseguradora | Por validar |
 | AAP | Consulta por placa | Por validar |
 | INFOGAS / FISE | Instalacion GNV/GLP por placa | Por validar |
-| SAT | Placa con provincia u otro documento | Requiere datos adicionales |
+| SAT Lima | Orden de captura y papeletas por placa | Por validar (capturas: prioridad 1) |
+| SAT Callao | Papeletas por placa | Por validar |
+| SUNARP historial | Transferencias y gravamenes | Por validar |
 | SUNAT | Consulta tributaria | Requiere numero de documento |
 | PNP / DIROVE | Datos policiales | **Excluido**: datos sensibles y acceso restringido |
 
 Inventario completo, orden sugerido y reglas para agregar fuentes:
-[PLAN.md](docs/PLAN.md).
+[PLAN.md](docs/PLAN.md). Que necesita la app ObdScanner y que falta para
+conectarla a este backend: [COBERTURA-APP.md](docs/COBERTURA-APP.md).
 
 Modo desatendido (Scrapling resuelve Cloudflare y ejecuta el formulario oficial):
 
@@ -216,6 +219,7 @@ SECURITY.md                Politica de seguridad, secretos y datos personales
 CONTRIBUTING.md            Git Flow, convenciones de commits y checklist
 CHANGELOG.md               Historial de versiones
 docs/PLAN.md               Inventario de fuentes, estados y orden sugerido
+docs/COBERTURA-APP.md      Fuentes que necesita la app ObdScanner y diferencias de contrato
 docs/ARQUITECTURA.md       Decisiones, flujo y plan de implementacion
 docs/API.md                Contrato HTTP, trabajos sigilosos y uso desde APK
 docs/SOAT.md               Evidencia y flujo del portal APESEG
