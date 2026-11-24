@@ -7,4 +7,5 @@ SOURCES = (
     SourceInfo(Source.MTC, "MTC / Revision tecnica", "https://portal.mtc.gob.pe/reportedgtt/form/frmconsultaplacaitv.aspx", implemented=True),
     SourceInfo(Source.SUTRAN, "SUTRAN / Papeletas", "https://digital.sutran.gob.pe/", implemented=False),
     SourceInfo(Source.SAT, "SAT Lima / Orden de captura", "https://www.sat.gob.pe/VirtualSAT/modulos/Capturas.aspx", implemented=False),
+    SourceInfo(Source.ATU, "ATU / Infracciones de transporte", "https://pasarela.atu.gob.pe/", implemented=False),
 )
