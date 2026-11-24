@@ -48,7 +48,10 @@ Ninguna fuente se da por soportada solo porque exista una URL publica.
 | SUNAT | Consulta vehicular / tributaria | **Requiere datos adicionales** | Verificar que se necesita numero de documento u otros datos. Sin ese dato no se incorpora a la consulta por placa. |
 | AAP | Confirmar si su consulta esta disponible por placa | **Por validar** | Comprobar si existe busqueda por placa y si los datos difieren de APESEG. Evitar duplicar SOAT sin ganancia. |
 | INFOGAS / FISE | Confirmar si la instalacion GNV/GLP se consulta por placa | **Por validar** | Verificar si hay consulta por placa o solo listados de talleres autorizados. Nota: el portal MTC ya muestra un listado de talleres de conversion GNV/GLP, pero no por placa. |
-| SAT | Consulta por placa con contexto provincial | **Requiere datos adicionales** | Confirmar la provincia requerida y si admite placa o documento. Definir como se pediria ese contexto desde la APK. |
+| SAT Lima (capturas) | Orden de captura por placa | **Parcial** | La app ObdScanner ya la usa via ApisTED solo con la placa. Conector stealth con OCR local; validado el caso sin orden de captura. Falta ver un caso con orden. Ver [SAT.md](SAT.md). |
+| SAT Lima (papeletas) | Papeletas por placa | **Por validar** | La app no la consulta hoy. Confirmar si la busqueda por placa es publica y que pide ademas de la placa. |
+| SAT Callao | Papeletas por placa | **Por validar** | La app ObdScanner la usa via ApisTED. Inspeccionar el portal del Callao. |
+| SUNARP historial | Transferencias y gravamenes | **Por validar** | La app la usa via ApisTED como consulta opcional. Confirmar si existe consulta publica o si es un servicio pagado de SUNARP. |
 
 ## Fuente exclusion
 
@@ -58,17 +61,20 @@ Ninguna fuente se da por soportada solo porque exista una URL publica.
 
 ## Orden sugerido
 
-1. **Cerrar SUNARP**: definir si propiedad y datos tecnicos se estructuran o se
-   entregan solo como imagen. Es la unica fuente actual con dato parcial.
+Prioridad fijada por lo que necesita la app ObdScanner
+(ver [COBERTURA-APP.md](COBERTURA-APP.md)):
+
+1. **SAT Lima, orden de captura**: la alerta mas grave para un comprador.
 2. **Resolver el Turnstile de SUTRAN**: hay evidencia de que la consulta por placa
    existe, pero falta obtener el token de forma confiable. Mientras tanto el
-   conector queda como experimental y `implemented=False`. Despues, validar AAP.
-3. **Validar INFOGAS / FISE y ATU**: requieren revisar alcance publico y
-   privacidad antes de escribir cualquier conector.
-4. **SBS y SAT**: solo si confirman consulta por placa o si aceptamos pedir el
-   dato adicional en la APK.
-5. **SUNAT**: queda condicionado a obtener el documento del usuario.
-6. **PNP / DIROVE**: no se trabaja.
+   conector queda como experimental y `implemented=False`.
+3. **ATU y SAT Callao**: revisar alcance publico y privacidad antes de escribir
+   cualquier conector.
+4. **Papeletas SAT Lima**: no la usa la app hoy, pero cubre un hueco para autos de Lima.
+5. **Historial SUNARP**: lento y complejo; puede seguir en ApisTED.
+6. **AAP, SBS, INFOGAS / FISE**: solo si aportan algo distinto a lo ya cubierto.
+7. **SUNAT**: queda condicionado a obtener el documento del usuario.
+8. **PNP / DIROVE**: no se trabaja.
 
 ## Reglas para cualquier fuente nueva
 

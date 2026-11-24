@@ -180,12 +180,29 @@ class SutranData(Contract):
     capture: Capture | None = None
 
 
+# ---------------------------------------------------------------------- SAT
+class SatOrden(Contract):
+    detalle: str = Field(description="Columnas de la fila unidas con ' · '")
+    campos: dict[str, str] = Field(description="Fila tal como la muestra el portal")
+
+
+class SatData(Contract):
+    """Validado sin orden de captura; ``ordenes`` aun es provisional."""
+
+    tiene_orden_captura: bool
+    ordenes: list[SatOrden]
+    mensaje: str | None
+    actualizado_al: IsoDate | None = Field(description="Fecha del informe del SAT")
+    capture: Capture | None = None
+
+
 # ------------------------------------------------------------------ registro
 CONTRACTS: dict[Source, dict[QueryStatus, type[Contract] | Any]] = {
     Source.SOAT: {QueryStatus.SUCCESS: SoatData, QueryStatus.NOT_FOUND: SoatData},
     Source.SUNARP: {QueryStatus.SUCCESS: SunarpData, QueryStatus.NOT_FOUND: SunarpNotFound},
     Source.MTC: {QueryStatus.SUCCESS: MtcData, QueryStatus.NOT_FOUND: MtcData},
     Source.SUTRAN: {QueryStatus.SUCCESS: SutranData, QueryStatus.NOT_FOUND: SutranData},
+    Source.SAT: {QueryStatus.SUCCESS: SatData, QueryStatus.NOT_FOUND: SatData},
 }
 
 ALL_MODELS: tuple[type[Contract], ...] = (
@@ -194,6 +211,7 @@ ALL_MODELS: tuple[type[Contract], ...] = (
     SunarpNotFound,
     MtcData,
     SutranData,
+    SatData,
 )
 
 

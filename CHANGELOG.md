@@ -5,6 +5,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 
 ## [Sin publicar]
 
+### Agregado
+- Fuente `sat` (SAT de Lima, orden de captura) en modo stealth: sesion HTTP,
+  captcha de imagen con OCR local y reintentos. Experimental (`implemented=false`):
+  el parser es provisional hasta validarlo con una respuesta real.
+- `OBD_DEBUG_DIR` guarda el HTML crudo de la respuesta del SAT para ajustar el parser.
+- `docs/COBERTURA-APP.md`: fuentes que necesita la app ObdScanner y diferencias de contrato.
+
 ## [0.2.0] - 2026-11-23
 
 ### Seguridad
