@@ -5,6 +5,26 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 
 ## [Sin publicar]
 
+## [0.3.0] - 2026-11-23
+
+### Agregado
+- Fuente `sat` (SAT de Lima, orden de captura) en modo stealth: sesion HTTP,
+  captcha de imagen con OCR local y reintentos. Experimental (`implemented=false`):
+  el parser es provisional hasta validarlo con una respuesta real.
+- SUTRAN funciona en modo stealth: el conector pulsa Consultar y deja que el
+  sitio obtenga su token de Turnstile (antes lo esperaba antes de pulsar y nunca
+  llegaba). Validado con consultas reales sin documentos; sigue experimental
+  hasta ver un caso con documentos.
+- Fuente `atu` (infracciones de transporte de Lima y Callao) en modo stealth:
+  el navegador busca por placa y lee la tabla o el aviso de la pasarela (la API
+  del portal responde cifrada). Validada sin infracciones; experimental
+  (`implemented=false`) hasta ver un caso con infracciones.
+- Fuente `callao` (papeletas de transito del Callao) en modo stealth: sesion
+  HTTP, captcha de 3 caracteres con OCR local y reintentos. Validada sin
+  papeletas; experimental (`implemented=false`) hasta ver un caso con papeletas.
+- `OBD_DEBUG_DIR` guarda el HTML crudo de la respuesta del SAT y del Callao para ajustar el parser.
+- `docs/COBERTURA-APP.md`: fuentes que necesita la app ObdScanner y diferencias de contrato.
+
 ## [0.2.0] - 2026-11-23
 
 ### Seguridad

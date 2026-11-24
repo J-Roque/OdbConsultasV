@@ -21,11 +21,23 @@ MTC se implemento el 23/11/2026 en modo **desatendido con OCR local**
 portal lo rechaza. Tambien conserva un modo asistido respaldo con navegador
 visible. Ver [MTC.md](docs/MTC.md).
 
-SUTRAN tiene un conector **experimental** (`implemented=false`). Existe consulta
-publica por placa en `/consultas/placa/{placa}`, pero la API exige el token
-`X-Captcha-Token` de Turnstile. La validacion real no obtuvo ese token y la
-consulta devuelve `requires_interaction`; no se publica un resultado no
-verificado. Ver [SUTRAN.md](docs/SUTRAN.md).
+SUTRAN funciona en modo **desatendido** desde el 24/11/2026: el conector pulsa
+Consultar y el propio sitio obtiene su token de Turnstile antes de llamar a
+`/consultas/placa/{placa}`. Validado con consultas reales sin documentos; queda
+`implemented=false` hasta ver una placa con documentos. Ver [SUTRAN.md](docs/SUTRAN.md).
+
+SAT de Lima (orden de captura) funciona en modo desatendido con OCR local del
+captcha. Validado sin orden de captura; queda `implemented=false` hasta ver un
+caso con orden. Ver [SAT.md](docs/SAT.md).
+
+ATU (infracciones de transporte de Lima y Callao) funciona en modo desatendido:
+el navegador elige "Por Placa", pulsa BUSCAR (el sitio ejecuta su reCAPTCHA v3)
+y lee la tabla o el aviso de la pagina. Validado sin infracciones; queda
+`implemented=false` hasta ver un caso con infracciones. Ver [ATU.md](docs/ATU.md).
+
+Callao (papeletas de transito) funciona en modo desatendido por HTTP con OCR
+local del codigo de seguridad. Validado sin papeletas; queda `implemented=false`
+hasta ver un caso con papeletas. Ver [CALLAO.md](docs/CALLAO.md).
 
 Para las fuentes configuradas, la API basica (`/v1/queries`) y la CLI sin
 `--stealth` ni `--interactive` devuelven `requires_interaction` sin consultar
@@ -38,17 +50,20 @@ datos ni abrir ventanas.
 | APESEG / SOAT | Vigencia y aseguradora | Implementado |
 | MTC | Revision tecnica y vigencias CITV | Implementado |
 | SUNARP | Propiedad, datos tecnicos y estado de robo | Implementado: imagen TIVE + campos con OCR local |
-| SUTRAN | Multas por placa | Por validar: exige token Turnstile; conector experimental |
-| ATU | Multas por placa | Por validar (alcance publico y privacidad) |
+| SUTRAN | Multas por placa | Parcial: consulta desatendida validada sin documentos |
+| ATU | Multas por placa | Parcial: consulta desatendida validada sin infracciones |
 | SBS | Consulta publica por placa o aseguradora | Por validar |
 | AAP | Consulta por placa | Por validar |
 | INFOGAS / FISE | Instalacion GNV/GLP por placa | Por validar |
-| SAT | Placa con provincia u otro documento | Requiere datos adicionales |
+| SAT Lima | Orden de captura y papeletas por placa | Por validar (capturas: prioridad 1) |
+| Callao | Papeletas por placa | Parcial: consulta desatendida validada sin papeletas |
+| SUNARP historial | Transferencias y gravamenes | Por validar |
 | SUNAT | Consulta tributaria | Requiere numero de documento |
 | PNP / DIROVE | Datos policiales | **Excluido**: datos sensibles y acceso restringido |
 
 Inventario completo, orden sugerido y reglas para agregar fuentes:
-[PLAN.md](docs/PLAN.md).
+[PLAN.md](docs/PLAN.md). Que necesita la app ObdScanner y que falta para
+conectarla a este backend: [COBERTURA-APP.md](docs/COBERTURA-APP.md).
 
 Modo desatendido (Scrapling resuelve Cloudflare y ejecuta el formulario oficial):
 
@@ -191,13 +206,17 @@ src/obd_consultas/
   providers/sunarp.py      Parser y conector SUNARP
   providers/mtc.py         Parser y conector MTC
   providers/sutran.py      Parser experimental de SUTRAN
+  providers/atu.py         Parser de la pasarela de infracciones ATU
+  providers/callao.py      Parser del portal de papeletas del Callao
   infrastructure/soat_browser.py  Consulta asistida con Playwright
   infrastructure/soat_stealth.py  Consulta desatendida con Scrapling
   infrastructure/sunarp_stealth.py  Consulta desatendida de SUNARP
   infrastructure/sunarp_ocr.py  Lectura local de la tarjeta TIVE (RapidOCR)
   infrastructure/mtc_browser.py  Consulta asistida de MTC con captcha humano
   infrastructure/mtc_stealth.py  Consulta desatendida de MTC con OCR local
-  infrastructure/sutran_stealth.py  Intento desatendido de SUTRAN (experimental)
+  infrastructure/sutran_stealth.py  Consulta desatendida de SUTRAN
+  infrastructure/atu_stealth.py  Consulta desatendida de la ATU (lee la pagina)
+  infrastructure/callao_stealth.py  Consulta desatendida del Callao con OCR local
   infrastructure/scrapling_engine.py  Sesiones sigilosas, HTTP, proxies y parser
   infrastructure/extraction.py  Reglas de extraccion y Markdown
   providers/pending.py     Respuesta explicita para conectores pendientes
@@ -216,12 +235,16 @@ SECURITY.md                Politica de seguridad, secretos y datos personales
 CONTRIBUTING.md            Git Flow, convenciones de commits y checklist
 CHANGELOG.md               Historial de versiones
 docs/PLAN.md               Inventario de fuentes, estados y orden sugerido
+docs/COBERTURA-APP.md      Fuentes que necesita la app ObdScanner y diferencias de contrato
+docs/SAT.md                Evidencia del portal de capturas del SAT de Lima
 docs/ARQUITECTURA.md       Decisiones, flujo y plan de implementacion
 docs/API.md                Contrato HTTP, trabajos sigilosos y uso desde APK
 docs/SOAT.md               Evidencia y flujo del portal APESEG
 docs/SUNARP.md             Evidencia, flujo y contrato del portal SUNARP
 docs/MTC.md                Evidencia, OCR local, captcha asistido y contrato MTC
 docs/SUTRAN.md             Evidencia y estado experimental del portal SUTRAN
+docs/ATU.md                Evidencia y flujo de la pasarela de infracciones ATU
+docs/CALLAO.md             Evidencia y flujo del portal de papeletas del Callao
 docs/SCRAPLING.md          Motor de scraping, comandos y limites
 ```
 

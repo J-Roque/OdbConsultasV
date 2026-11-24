@@ -180,12 +180,57 @@ class SutranData(Contract):
     capture: Capture | None = None
 
 
+# ---------------------------------------------------------------------- SAT
+class SatOrden(Contract):
+    detalle: str = Field(description="Columnas de la fila unidas con ' · '")
+    campos: dict[str, str] = Field(description="Fila tal como la muestra el portal")
+
+
+class SatData(Contract):
+    """Validado sin orden de captura; ``ordenes`` aun es provisional."""
+
+    tiene_orden_captura: bool
+    ordenes: list[SatOrden]
+    mensaje: str | None
+    actualizado_al: IsoDate | None = Field(description="Fecha del informe del SAT")
+    capture: Capture | None = None
+
+
+# ---------------------------------------------------------------------- ATU
+class AtuData(Contract):
+    """Validado sin infracciones; las columnas con infracciones aun son provisionales."""
+
+    tiene_infracciones: bool
+    infracciones: list[dict[str, str]] = Field(
+        description="Filas de la tabla de la pasarela; claves en snake_case (placa, falta, total_a_pagar, estado...)"
+    )
+    total_registros: int = Field(description="Total que indica el contador de la tabla")
+    completo: bool = Field(description="False si la tabla tenia mas paginas que no se leyeron")
+    mensaje: str | None
+    capture: Capture | None = None
+
+
+# ------------------------------------------------------------------- CALLAO
+class CallaoData(Contract):
+    """Validado sin papeletas; las columnas con papeletas aun son provisionales."""
+
+    tiene_papeletas: bool
+    papeletas: list[dict[str, str]] = Field(
+        description="Filas de la tabla del portal; claves en snake_case. Se omiten columnas con datos personales."
+    )
+    mensaje: str | None
+    capture: Capture | None = None
+
+
 # ------------------------------------------------------------------ registro
 CONTRACTS: dict[Source, dict[QueryStatus, type[Contract] | Any]] = {
     Source.SOAT: {QueryStatus.SUCCESS: SoatData, QueryStatus.NOT_FOUND: SoatData},
     Source.SUNARP: {QueryStatus.SUCCESS: SunarpData, QueryStatus.NOT_FOUND: SunarpNotFound},
     Source.MTC: {QueryStatus.SUCCESS: MtcData, QueryStatus.NOT_FOUND: MtcData},
     Source.SUTRAN: {QueryStatus.SUCCESS: SutranData, QueryStatus.NOT_FOUND: SutranData},
+    Source.SAT: {QueryStatus.SUCCESS: SatData, QueryStatus.NOT_FOUND: SatData},
+    Source.ATU: {QueryStatus.SUCCESS: AtuData, QueryStatus.NOT_FOUND: AtuData},
+    Source.CALLAO: {QueryStatus.SUCCESS: CallaoData, QueryStatus.NOT_FOUND: CallaoData},
 }
 
 ALL_MODELS: tuple[type[Contract], ...] = (
@@ -194,6 +239,9 @@ ALL_MODELS: tuple[type[Contract], ...] = (
     SunarpNotFound,
     MtcData,
     SutranData,
+    SatData,
+    AtuData,
+    CallaoData,
 )
 
 

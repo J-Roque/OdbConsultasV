@@ -41,7 +41,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health").json(), {"status": "ok"})
         response = self.client.get("/v1/sources")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 4)
+        self.assertEqual(len(response.json()), 7)
         by_source = {item["source"]: item for item in response.json()}
         self.assertTrue(by_source["soat"]["implemented"])
         self.assertTrue(by_source["sunarp"]["implemented"])

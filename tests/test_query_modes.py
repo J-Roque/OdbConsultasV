@@ -23,6 +23,9 @@ class QueryModeTests(unittest.TestCase):
                 Source.SUNARP: [QueryMode.BASIC, QueryMode.STEALTH],
                 Source.MTC: [QueryMode.BASIC, QueryMode.STEALTH, QueryMode.ASSISTED],
                 Source.SUTRAN: [QueryMode.BASIC, QueryMode.STEALTH],
+                Source.SAT: [QueryMode.BASIC, QueryMode.STEALTH],
+                Source.ATU: [QueryMode.BASIC, QueryMode.STEALTH],
+                Source.CALLAO: [QueryMode.BASIC, QueryMode.STEALTH],
             },
         )
         self.assertEqual(service.sources_for(QueryMode.ASSISTED), [Source.SOAT, Source.MTC])
