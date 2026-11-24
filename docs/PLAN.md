@@ -25,7 +25,7 @@ Ninguna fuente se da por soportada solo porque exista una URL publica.
 | APESEG / SOAT | Vigencia y aseguradora | **Implementado** | `data.soat_vigente`, `data.vigente` y `data.certificados` con aseguradora, numero de poliza y vigencias. Ver [SOAT.md](SOAT.md). |
 | MTC | Revision tecnica y vigencias CITV | **Implementado** | Hasta tres registros en `data.registros`, etiquetados `ULTIMO`, `PENULTIMO` y `ANTEPENULTIMO`, con `data.vigente`. Modo desatendido con OCR local. Ver [MTC.md](MTC.md). |
 | SUNARP | Propiedad, datos tecnicos y estado de robo | **Implementado** | La imagen TIVE se entrega en `data.tarjeta` y sus campos se leen con OCR local en `data.vehiculo` (valor y confianza por campo). `alerta_robo` es campo JSON. Ver [SUNARP.md](SUNARP.md). |
-| SUTRAN | Papeletas e infracciones por placa | **Por validar** | Existe consulta publica por placa, pero exige un token de Turnstile en `X-Captcha-Token`. El conector esta armado y es experimental, pero la validacion real no obtuvo el token: devuelve `requires_interaction`. Ver [SUTRAN.md](SUTRAN.md). |
+| SUTRAN | Papeletas e infracciones por placa | **Parcial** | Consulta desatendida validada el 24/11/2026 (sin documentos): el conector pulsa Consultar y el sitio obtiene su token de Turnstile. Falta ver un caso con documentos. Ver [SUTRAN.md](SUTRAN.md). |
 
 ### Cierre de SUNARP
 
@@ -65,9 +65,8 @@ Prioridad fijada por lo que necesita la app ObdScanner
 (ver [COBERTURA-APP.md](COBERTURA-APP.md)):
 
 1. **SAT Lima, orden de captura**: la alerta mas grave para un comprador.
-2. **Resolver el Turnstile de SUTRAN**: hay evidencia de que la consulta por placa
-   existe, pero falta obtener el token de forma confiable. Mientras tanto el
-   conector queda como experimental y `implemented=False`.
+2. **SUTRAN**: la consulta desatendida ya funciona; falta validar un caso con
+   documentos para marcarla como implementada.
 3. **ATU y SAT Callao**: revisar alcance publico y privacidad antes de escribir
    cualquier conector.
 4. **Papeletas SAT Lima**: no la usa la app hoy, pero cubre un hueco para autos de Lima.

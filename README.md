@@ -21,11 +21,14 @@ MTC se implemento el 23/11/2026 en modo **desatendido con OCR local**
 portal lo rechaza. Tambien conserva un modo asistido respaldo con navegador
 visible. Ver [MTC.md](docs/MTC.md).
 
-SUTRAN tiene un conector **experimental** (`implemented=false`). Existe consulta
-publica por placa en `/consultas/placa/{placa}`, pero la API exige el token
-`X-Captcha-Token` de Turnstile. La validacion real no obtuvo ese token y la
-consulta devuelve `requires_interaction`; no se publica un resultado no
-verificado. Ver [SUTRAN.md](docs/SUTRAN.md).
+SUTRAN funciona en modo **desatendido** desde el 24/11/2026: el conector pulsa
+Consultar y el propio sitio obtiene su token de Turnstile antes de llamar a
+`/consultas/placa/{placa}`. Validado con consultas reales sin documentos; queda
+`implemented=false` hasta ver una placa con documentos. Ver [SUTRAN.md](docs/SUTRAN.md).
+
+SAT de Lima (orden de captura) funciona en modo desatendido con OCR local del
+captcha. Validado sin orden de captura; queda `implemented=false` hasta ver un
+caso con orden. Ver [SAT.md](docs/SAT.md).
 
 Para las fuentes configuradas, la API basica (`/v1/queries`) y la CLI sin
 `--stealth` ni `--interactive` devuelven `requires_interaction` sin consultar
@@ -38,7 +41,7 @@ datos ni abrir ventanas.
 | APESEG / SOAT | Vigencia y aseguradora | Implementado |
 | MTC | Revision tecnica y vigencias CITV | Implementado |
 | SUNARP | Propiedad, datos tecnicos y estado de robo | Implementado: imagen TIVE + campos con OCR local |
-| SUTRAN | Multas por placa | Por validar: exige token Turnstile; conector experimental |
+| SUTRAN | Multas por placa | Parcial: consulta desatendida validada sin documentos |
 | ATU | Multas por placa | Por validar (alcance publico y privacidad) |
 | SBS | Consulta publica por placa o aseguradora | Por validar |
 | AAP | Consulta por placa | Por validar |
@@ -200,7 +203,7 @@ src/obd_consultas/
   infrastructure/sunarp_ocr.py  Lectura local de la tarjeta TIVE (RapidOCR)
   infrastructure/mtc_browser.py  Consulta asistida de MTC con captcha humano
   infrastructure/mtc_stealth.py  Consulta desatendida de MTC con OCR local
-  infrastructure/sutran_stealth.py  Intento desatendido de SUTRAN (experimental)
+  infrastructure/sutran_stealth.py  Consulta desatendida de SUTRAN
   infrastructure/scrapling_engine.py  Sesiones sigilosas, HTTP, proxies y parser
   infrastructure/extraction.py  Reglas de extraccion y Markdown
   providers/pending.py     Respuesta explicita para conectores pendientes

@@ -105,5 +105,5 @@ class SutranProvider:
         return sutran_result(
             normalize_plate(plate),
             QueryStatus.REQUIRES_INTERACTION,
-            "SUTRAN permite consulta por placa, pero exige un token de Turnstile que aun no se obtiene de forma desatendida. El conector es experimental: usa --stealth para intentarlo.",
+            "SUTRAN exige la verificacion Turnstile del portal. Usa el modo stealth: el navegador completa la consulta oficial.",
         )

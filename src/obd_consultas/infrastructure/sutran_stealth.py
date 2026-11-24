@@ -23,8 +23,11 @@ from obd_consultas.providers.sutran import (
     sutran_result,
 )
 
-TOKEN_WAIT_MS = 45_000
-TOKEN_SCRIPT = "document.querySelector('input[name=cf-turnstile-response]')?.value || ''"  # noqa: S105 - JS que lee el widget
+# El sitio (Angular) pide el token de Turnstile recien al pulsar Consultar: crea
+# el widget oficial con appearance "interaction-only", espera su callback hasta
+# 120 s y lo envia en X-Captcha-Token. El conector no lee ni fabrica el token:
+# solo pulsa Consultar y observa la respuesta de la API.
+SITE_TOKEN_WAIT_MS = 120_000
 
 
 def _observe(page: Any, plate: str, timeout_ms: int, headless: bool, holder: dict[str, Any]) -> None:
@@ -38,35 +41,22 @@ def _observe(page: Any, plate: str, timeout_ms: int, headless: bool, holder: dic
     page.on("response", on_response)
     page.wait_for_selector('input[name="placa"]', timeout=30_000)
     page.locator('input[name="placa"]').fill(plate, timeout=20_000)
-
-    # El portal exige el token de Turnstile en la cabecera X-Captcha-Token.
-    # Si el widget no lo entrega, no tiene sentido enviar el formulario:
-    # la API responderia 403 CAPTCHA_INVALID.
-    token_wait = min(timeout_ms, TOKEN_WAIT_MS)
-    elapsed = 0
-    while elapsed < token_wait:
-        if page.evaluate(TOKEN_SCRIPT):
-            break
-        page.wait_for_timeout(500)
-        elapsed += 500
-    else:
-        holder["captcha"] = "sin token"
-        return
-
     if not headless:
         print(
-            "Resuelve Turnstile si aparece y pulsa Consultar en el navegador.",
+            "Si aparece la verificacion de Cloudflare en el navegador, resuelvela.",
             file=sys.stderr,
             flush=True,
         )
     page.get_by_role("button", name="Consultar", exact=True).click(timeout=15_000)
 
+    wait_ms = max(timeout_ms, SITE_TOKEN_WAIT_MS + 15_000)
     elapsed = 0
-    while elapsed < timeout_ms:
+    while elapsed < wait_ms:
         if "status" in holder:
             return
         page.wait_for_timeout(500)
         elapsed += 500
+    holder["captcha"] = "sin respuesta"
 
 
 def _result_from_holder(plate: str, holder: dict[str, Any]) -> QueryResult:
@@ -74,7 +64,7 @@ def _result_from_holder(plate: str, holder: dict[str, Any]) -> QueryResult:
         return sutran_result(
             plate,
             QueryStatus.REQUIRES_INTERACTION,
-            "SUTRAN no entrego el token de Turnstile. El portal permite consultar por placa, pero exige verificacion del navegador.",
+            "SUTRAN no respondio: la verificacion Turnstile del portal no se completo. Prueba con --show-browser y resuelvela si aparece.",
         )
     if "status" in holder:
         return result_from_api(holder, plate, result_from_response)
@@ -103,7 +93,7 @@ def query_sutran_stealth(
     plate = normalize_plate(plate)
     validate_timeout(timeout)
     timeout_ms = timeout * 1000
-    browser_timeout = min(max(timeout_ms, 60_000), 120_000)
+    browser_timeout = min(max(timeout_ms, 60_000), 180_000)
     holder: dict[str, Any] = {}
     options = stealth_options(
         headless=headless,
