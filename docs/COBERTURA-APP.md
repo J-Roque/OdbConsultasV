@@ -14,14 +14,15 @@ ObdConsultas es un MVP posterior; este documento fija que falta para llegar ahi.
 | `sunarp` | `sunarp/consulta-vehicular` | 60 | `sunarp` | Implementado (TIVE + OCR) |
 | `soat` | `apeseg/soat` | 1 | `soat` | Implementado |
 | `citv` | `mtc/revision-tecnica` | 30 | `mtc` | Implementado |
-| `sutran` | `mtc/sutran/record` | 5 | `sutran` | Experimental: falta token Turnstile |
-| `capture` | `sat/capturas` | 25 | — | **Falta**: orden de captura SAT Lima |
+| `sutran` | `mtc/sutran/record` | 5 | `sutran` | Parcial: validado sin documentos |
+| `capture` | `sat/capturas` | 25 | `sat` | Parcial: validado sin orden de captura |
 | `callao` | `sat/callao/papeletas` | 25 | — | **Falta**: papeletas del Callao |
-| `atu` | `mtc/atu/infracciones` | 20 | — | **Falta**: infracciones ATU |
+| `atu` | `mtc/atu/infracciones` | 20 | `atu` | Parcial: validado sin infracciones |
 | `history` (opcional) | `sunarp/historial-vehicular` | 60 | — | **Falta**: transferencias y gravamenes |
 
 Una inspeccion completa gasta 166 creditos (226 con historial). ObdConsultas
-cubre hoy 91 de esos 166 (SOAT, MTC y SUNARP); con SUTRAN serian 96.
+cubre hoy 141 de esos 166: SOAT, MTC y SUNARP implementados (91) mas SUTRAN,
+SAT capturas y ATU en estado parcial (50). Falta el Callao (25).
 
 La app usa ademas la API de NHTSA (`vpic.nhtsa.dot.gov`) para decodificar el VIN.
 Es gratuita y no requiere conector propio.
@@ -45,15 +46,15 @@ backend que reescribir los parsers de la app).
 | SUNARP | `vehiculo.{marca, modelo, color, ...}` como texto; `propietarios` texto en la raiz; `alerta_robo` | Cada campo como `{valor, confianza}`; `propietarios.valor` es lista dentro de `vehiculo`; `vehiculo` puede ser `OcrUnavailable` |
 | MTC (CITV) | `revisiones[]` con `estado`, `resultado`, `vigencia_*`, `observaciones[].detalle`; `vigente` booleano | `registros[]`; `observaciones` texto; `vigente` es el registro vigente o `null` |
 | SUTRAN | `infracciones[]` con `fecha`, `infraccion`/`falta`, `calificacion`/`estado`, `deuda`; `monto_total` | `documentos[]` sin forma validada |
-| SAT capturas | `tiene_orden_captura`, `ordenes[].detalle` | — |
-| Callao / ATU | `encontrado`, `papeletas[]` o `infracciones[]`, `deuda_total` | — |
+| SAT capturas | `tiene_orden_captura`, `ordenes[].detalle` | Lo mismo, mas `ordenes[].campos`, `mensaje` y `actualizado_al` |
+| Callao / ATU | `encontrado`, `papeletas[]` o `infracciones[]`, `deuda_total` | ATU: `tiene_infracciones`, `infracciones[]` (filas de la tabla, montos como texto); sin `deuda_total`. Callao: — |
 | Historial SUNARP | `transferencias_de_propiedad`, `total_asientos`, `alerta_robo.{reportado, detalle}`, `gravamenes.{tiene_cargas_vigentes, actos[], aviso}` | — |
 
 ## Orden sugerido
 
 1. **SAT Lima, orden de captura**: es la alerta mas grave para un comprador.
-2. **SUTRAN**: el conector existe; falta resolver el token Turnstile.
-3. **ATU** y **papeletas del Callao**.
+2. **SUTRAN**: funciona; falta validar un caso con documentos.
+3. **ATU** (funciona; falta un caso con infracciones) y **papeletas del Callao**.
 4. **Papeletas SAT Lima**: no esta en la app, pero cubre el hueco de arriba.
 5. **Historial y gravamenes SUNARP**: lento y complejo; puede seguir en ApisTED.
 

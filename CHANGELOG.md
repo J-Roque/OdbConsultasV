@@ -13,6 +13,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   sitio obtenga su token de Turnstile (antes lo esperaba antes de pulsar y nunca
   llegaba). Validado con consultas reales sin documentos; sigue experimental
   hasta ver un caso con documentos.
+- Fuente `atu` (infracciones de transporte de Lima y Callao) en modo stealth:
+  el navegador busca por placa y lee la tabla o el aviso de la pasarela (la API
+  del portal responde cifrada). Validada sin infracciones; experimental
+  (`implemented=false`) hasta ver un caso con infracciones.
 - `OBD_DEBUG_DIR` guarda el HTML crudo de la respuesta del SAT para ajustar el parser.
 - `docs/COBERTURA-APP.md`: fuentes que necesita la app ObdScanner y diferencias de contrato.
 

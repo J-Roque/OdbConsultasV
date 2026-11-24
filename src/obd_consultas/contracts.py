@@ -196,6 +196,20 @@ class SatData(Contract):
     capture: Capture | None = None
 
 
+# ---------------------------------------------------------------------- ATU
+class AtuData(Contract):
+    """Validado sin infracciones; las columnas con infracciones aun son provisionales."""
+
+    tiene_infracciones: bool
+    infracciones: list[dict[str, str]] = Field(
+        description="Filas de la tabla de la pasarela; claves en snake_case (placa, falta, total_a_pagar, estado...)"
+    )
+    total_registros: int = Field(description="Total que indica el contador de la tabla")
+    completo: bool = Field(description="False si la tabla tenia mas paginas que no se leyeron")
+    mensaje: str | None
+    capture: Capture | None = None
+
+
 # ------------------------------------------------------------------ registro
 CONTRACTS: dict[Source, dict[QueryStatus, type[Contract] | Any]] = {
     Source.SOAT: {QueryStatus.SUCCESS: SoatData, QueryStatus.NOT_FOUND: SoatData},
@@ -203,6 +217,7 @@ CONTRACTS: dict[Source, dict[QueryStatus, type[Contract] | Any]] = {
     Source.MTC: {QueryStatus.SUCCESS: MtcData, QueryStatus.NOT_FOUND: MtcData},
     Source.SUTRAN: {QueryStatus.SUCCESS: SutranData, QueryStatus.NOT_FOUND: SutranData},
     Source.SAT: {QueryStatus.SUCCESS: SatData, QueryStatus.NOT_FOUND: SatData},
+    Source.ATU: {QueryStatus.SUCCESS: AtuData, QueryStatus.NOT_FOUND: AtuData},
 }
 
 ALL_MODELS: tuple[type[Contract], ...] = (
@@ -212,6 +227,7 @@ ALL_MODELS: tuple[type[Contract], ...] = (
     MtcData,
     SutranData,
     SatData,
+    AtuData,
 )
 
 

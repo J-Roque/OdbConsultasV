@@ -30,6 +30,11 @@ SAT de Lima (orden de captura) funciona en modo desatendido con OCR local del
 captcha. Validado sin orden de captura; queda `implemented=false` hasta ver un
 caso con orden. Ver [SAT.md](docs/SAT.md).
 
+ATU (infracciones de transporte de Lima y Callao) funciona en modo desatendido:
+el navegador elige "Por Placa", pulsa BUSCAR (el sitio ejecuta su reCAPTCHA v3)
+y lee la tabla o el aviso de la pagina. Validado sin infracciones; queda
+`implemented=false` hasta ver un caso con infracciones. Ver [ATU.md](docs/ATU.md).
+
 Para las fuentes configuradas, la API basica (`/v1/queries`) y la CLI sin
 `--stealth` ni `--interactive` devuelven `requires_interaction` sin consultar
 datos ni abrir ventanas.
@@ -42,7 +47,7 @@ datos ni abrir ventanas.
 | MTC | Revision tecnica y vigencias CITV | Implementado |
 | SUNARP | Propiedad, datos tecnicos y estado de robo | Implementado: imagen TIVE + campos con OCR local |
 | SUTRAN | Multas por placa | Parcial: consulta desatendida validada sin documentos |
-| ATU | Multas por placa | Por validar (alcance publico y privacidad) |
+| ATU | Multas por placa | Parcial: consulta desatendida validada sin infracciones |
 | SBS | Consulta publica por placa o aseguradora | Por validar |
 | AAP | Consulta por placa | Por validar |
 | INFOGAS / FISE | Instalacion GNV/GLP por placa | Por validar |
@@ -197,6 +202,7 @@ src/obd_consultas/
   providers/sunarp.py      Parser y conector SUNARP
   providers/mtc.py         Parser y conector MTC
   providers/sutran.py      Parser experimental de SUTRAN
+  providers/atu.py         Parser de la pasarela de infracciones ATU
   infrastructure/soat_browser.py  Consulta asistida con Playwright
   infrastructure/soat_stealth.py  Consulta desatendida con Scrapling
   infrastructure/sunarp_stealth.py  Consulta desatendida de SUNARP
@@ -204,6 +210,7 @@ src/obd_consultas/
   infrastructure/mtc_browser.py  Consulta asistida de MTC con captcha humano
   infrastructure/mtc_stealth.py  Consulta desatendida de MTC con OCR local
   infrastructure/sutran_stealth.py  Consulta desatendida de SUTRAN
+  infrastructure/atu_stealth.py  Consulta desatendida de la ATU (lee la pagina)
   infrastructure/scrapling_engine.py  Sesiones sigilosas, HTTP, proxies y parser
   infrastructure/extraction.py  Reglas de extraccion y Markdown
   providers/pending.py     Respuesta explicita para conectores pendientes
@@ -230,6 +237,7 @@ docs/SOAT.md               Evidencia y flujo del portal APESEG
 docs/SUNARP.md             Evidencia, flujo y contrato del portal SUNARP
 docs/MTC.md                Evidencia, OCR local, captcha asistido y contrato MTC
 docs/SUTRAN.md             Evidencia y estado experimental del portal SUTRAN
+docs/ATU.md                Evidencia y flujo de la pasarela de infracciones ATU
 docs/SCRAPLING.md          Motor de scraping, comandos y limites
 ```
 
