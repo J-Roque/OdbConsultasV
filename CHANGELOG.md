@@ -5,6 +5,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 
 ## [Sin publicar]
 
+## [0.3.0] - 2026-11-23
+
 ### Agregado
 - Fuente `sat` (SAT de Lima, orden de captura) en modo stealth: sesion HTTP,
   captcha de imagen con OCR local y reintentos. Experimental (`implemented=false`):
