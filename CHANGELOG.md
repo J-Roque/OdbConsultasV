@@ -9,6 +9,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 - Fuente `sat` (SAT de Lima, orden de captura) en modo stealth: sesion HTTP,
   captcha de imagen con OCR local y reintentos. Experimental (`implemented=false`):
   el parser es provisional hasta validarlo con una respuesta real.
+- SUTRAN funciona en modo stealth: el conector pulsa Consultar y deja que el
+  sitio obtenga su token de Turnstile (antes lo esperaba antes de pulsar y nunca
+  llegaba). Validado con consultas reales sin documentos; sigue experimental
+  hasta ver un caso con documentos.
 - `OBD_DEBUG_DIR` guarda el HTML crudo de la respuesta del SAT para ajustar el parser.
 - `docs/COBERTURA-APP.md`: fuentes que necesita la app ObdScanner y diferencias de contrato.
 

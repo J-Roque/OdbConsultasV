@@ -14,29 +14,50 @@ token devuelve HTTP 403 `CAPTCHA_INVALID`.
 
 ## Estado de la validacion
 
-**El conector es experimental y `implemented=false`.** La estructura del codigo
-esta integrada (proveedor, CLI, API y pruebas sinteticas), pero la validacion real
-del 23/11/2026 **no obtuvo datos**:
+**Parcial: la consulta por placa funciona en modo desatendido.** El 24/11/2026
+dos consultas reales con una placa autorizada devolvieron `not_found` con las
+fuentes `RECORD_INFRACCIONES`, `PAPELETAS_CINEMOMETRO` y
+`VERIFICACION_DOCUMENTOS` respondiendo `ok`. Aun no se vio una placa **con**
+documentos, asi que la forma de `documentos` sigue sin validar y la fuente queda
+`implemented=false`.
 
-- El solver de Cloudflare de Scrapling falla en este portal: intenta hacer clic en
-  un `input[type="checkbox"]` de un iframe que se destruye y aborta la pagina.
-  Por eso el conector usa `solve_cloudflare=False`.
-- Con el solver desactivado, el formulario carga y acepta la placa, pero el token
-  de Turnstile queda vacio (`input[name="cf-turnstile-response"]`). No se envia la
-  consulta y se devuelve `requires_interaction`.
-- La llamada directa por HTTP tambien devuelve 403 sin `X-Captcha-Token`.
+### Por que fallaba antes
 
-No se extrae, reutiliza ni falsifica el token: el proyecto no publica una consulta
-que no pudo verificar. Este modulo se conserva como base para cuando se resuelva
-el reto del navegador.
+El sitio es una app Angular que pide el token de Turnstile **al pulsar
+Consultar**, no al cargar: crea el widget oficial con
+`appearance: "interaction-only"` (invisible salvo que Cloudflare pida un clic),
+espera su callback hasta 120 s y lo envia en `X-Captcha-Token` junto con
+`X-Captcha-Espera-Ms`. La version del 23/11 esperaba el token en
+`input[name="cf-turnstile-response"]` **antes** de pulsar, y ese campo nunca se
+llena con este flujo.
+
+Ahora el conector completa la placa, pulsa Consultar y observa la respuesta de
+la API. No lee, extrae ni fabrica el token: lo obtiene el propio sitio. El
+solver de Cloudflare de Scrapling sigue desactivado (`solve_cloudflare=False`).
+### Fiabilidad
+
+Turnstile no siempre entrega el token sin interaccion. El 24/11/2026, de 8
+consultas reales seguidas, 6 respondieron en 15 a 20 s y 2 no recibieron token
+(una por la API y otra por la CLI). Por eso, en modo headless:
+
+- cada intento espera hasta 50 s (no los 120 s del sitio, porque nadie puede
+  marcar la casilla);
+- si aparece la casilla de Turnstile, el intento se corta en el acto;
+- se prueba con una sesion de navegador nueva, hasta 3 veces dentro del
+  `timeout` pedido;
+- si ninguna obtiene respuesta se devuelve `requires_interaction`, indicando si
+  Cloudflare mostro la casilla.
+
+Con `--show-browser` hay un solo intento y se espera lo mismo que el sitio
+(120 s) para que la persona pueda marcar la casilla.
 
 ## Flujo
 
 1. Crear una sesion temporal de navegador.
 2. Abrir el portal oficial.
 3. Completar `input[name="placa"]`.
-4. Pulsar Consultar.
-5. Observar `GET /consultas/placa/{placa}`.
+4. Pulsar Consultar (el sitio obtiene el token de Turnstile en este paso).
+5. Observar `GET /consultas/placa/{placa}`, hasta 135 s.
 6. Validar el criterio, las fuentes y la lista de documentos.
 7. Cerrar la sesion sin guardar cookies.
 
