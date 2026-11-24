@@ -105,5 +105,5 @@ class SutranProvider:
         return sutran_result(
             normalize_plate(plate),
             QueryStatus.REQUIRES_INTERACTION,
-            "SUTRAN exige la verificacion Turnstile del portal. Usa el modo stealth: el navegador completa la consulta oficial.",
+            "SUTRAN exige la verificacion Turnstile del portal. Usa --stealth (o /v1/queries/stealth): el navegador completa la consulta oficial.",
         )
