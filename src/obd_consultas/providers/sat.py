@@ -4,9 +4,9 @@ El portal es un formulario ASP.NET (placa + captcha de imagen) que devuelve el
 resultado en la misma pagina. Este modulo solo interpreta el HTML; la sesion y
 el captcha viven en :mod:`obd_consultas.infrastructure.sat_stealth`.
 
-**Provisional:** la forma del resultado aun no se valido con una respuesta real.
-El parser es deliberadamente generico (mensajes de la pagina y tablas de
-resultado) y la fuente queda ``implemented=False`` hasta validarla.
+El caso "sin orden de captura" se valido con una respuesta real el 24/11/2026.
+El caso "con orden" sigue siendo provisional (tabla generica en ``divCapturas``),
+por eso la fuente queda ``implemented=False``.
 """
 from __future__ import annotations
 
@@ -24,13 +24,10 @@ CAPTCHA_FIELD = "ctl00$cplPrincipal$txtCaptcha"
 PLATE_FIELD = "ctl00$cplPrincipal$txtPlaca"
 SUBMIT_FIELD = "ctl00$cplPrincipal$CaptchaContinue"
 
-_CAPTCHA_ERROR = re.compile(
-    r"c[oó]digo.{0,40}(incorrect|inv[aá]lid|no coincide|errad|equivocad)", re.IGNORECASE
-)
 _NO_ORDER = re.compile(
     r"no (tiene|registra|presenta|cuenta con|se encontr)|sin orden|no existe", re.IGNORECASE
 )
-_LAYOUT_LABELS = {"placa:", "codigo de seguridad:", "código de seguridad:"}
+_DATE = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})")
 
 
 class SatParseError(ValueError):
@@ -70,20 +67,24 @@ def captcha_url(html: str | bytes) -> str:
     raise SatParseError("La pagina no trae la imagen del captcha.")
 
 
-def _messages(page: Any) -> list[str]:
-    """Textos de etiquetas del contenido principal (``lbl...``)."""
-    messages: list[str] = []
-    for node in page.css("span[id*='cplPrincipal'], div[id*='cplPrincipal'] span[id]"):
-        text = _clean(node.get_all_text(strip=True))
-        if text and text not in messages and text.lower() not in _LAYOUT_LABELS:
-            messages.append(text)
-    return messages
+def _label(page: Any, suffix: str) -> str:
+    """Texto de la etiqueta ``ctl00_cplPrincipal_<suffix>`` (vacio si no esta)."""
+    node = page.css(f"[id='ctl00_cplPrincipal_{suffix}']").first
+    return _clean(node.get_all_text(strip=True)) if node is not None else ""
+
+
+def _iso_date(text: str) -> str | None:
+    match = _DATE.search(text)
+    if match is None:
+        return None
+    day, month, year = match.groups()
+    return f"{year}-{int(month):02d}-{int(day):02d}"
 
 
 def _tables(page: Any) -> list[dict[str, str]]:
-    """Filas de las tablas de resultado (GridView), con su encabezado."""
+    """Filas de las tablas de resultado dentro de ``divCapturas``, con su encabezado."""
     rows: list[dict[str, str]] = []
-    for table in page.css("table"):
+    for table in page.css("[id='ctl00_cplPrincipal_divCapturas'] table"):
         trs = table.css("tr")
         if len(trs) < 2:
             continue
@@ -98,22 +99,38 @@ def _tables(page: Any) -> list[dict[str, str]]:
 
 
 def parse_capturas(html: str | bytes, plate: str) -> dict[str, object]:
-    """Lee la pagina de resultado. Lanza ``SatCaptchaRejected`` si el codigo fallo."""
+    """Lee la pagina de resultado. Lanza ``SatCaptchaRejected`` si el codigo fallo.
+
+    Validado el 24/11/2026 con una respuesta real sin orden de captura:
+    ``lblMensajeVacio`` trae el mensaje y ``lblFecha`` la fecha del informe.
+    El caso con orden (tabla en ``divCapturas``) aun no se vio en real.
+    """
     normalize_plate(plate)
     page = parse_html(html, url=SAT_FORM_URL)
-    messages = _messages(page)
-    joined = " ".join(messages)
-    if _CAPTCHA_ERROR.search(joined):
-        raise SatCaptchaRejected(joined)
+    captcha_error = _label(page, "lblMensajeCapcha")
+    if captcha_error:
+        raise SatCaptchaRejected(captcha_error)
 
+    mensaje = _label(page, "lblMensajeVacio") or None
+    actualizado_al = _iso_date(_label(page, "lblFecha"))
     ordenes = [
         {"detalle": " · ".join(v for v in row.values() if v), "campos": row}
         for row in _tables(page)
     ]
     if ordenes:
-        return {"tiene_orden_captura": True, "ordenes": ordenes, "mensaje": joined or None}
-    if messages and _NO_ORDER.search(joined):
-        return {"tiene_orden_captura": False, "ordenes": [], "mensaje": joined}
+        return {
+            "tiene_orden_captura": True,
+            "ordenes": ordenes,
+            "mensaje": mensaje,
+            "actualizado_al": actualizado_al,
+        }
+    if mensaje and _NO_ORDER.search(mensaje):
+        return {
+            "tiene_orden_captura": False,
+            "ordenes": [],
+            "mensaje": mensaje,
+            "actualizado_al": actualizado_al,
+        }
     raise SatParseError(
         "No se reconocio la respuesta del SAT. Se guarda el HTML para ajustar el parser."
     )

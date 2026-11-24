@@ -187,11 +187,12 @@ class SatOrden(Contract):
 
 
 class SatData(Contract):
-    """Provisional: la forma se ajusta al validar con una respuesta real."""
+    """Validado sin orden de captura; ``ordenes`` aun es provisional."""
 
     tiene_orden_captura: bool
     ordenes: list[SatOrden]
     mensaje: str | None
+    actualizado_al: IsoDate | None = Field(description="Fecha del informe del SAT")
     capture: Capture | None = None
 
 

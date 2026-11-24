@@ -1,7 +1,7 @@
 # SAT de Lima: orden de captura
 
-Estado: **por validar**. Inspeccion inicial del 24/11/2026; aun no se envio
-ninguna consulta ni se vio una respuesta.
+Estado: **parcial**. El caso "sin orden de captura" se valido con una consulta
+real el 24/11/2026; el caso "con orden" aun no se vio en real.
 
 ## Acceso
 
@@ -35,13 +35,33 @@ campos ocultos y la imagen, lectura local del captcha (`ddddocr`, 4 a 6 letras o
 numeros) y POST con la placa. Si el portal rechaza el codigo, reintenta con el
 captcha nuevo de la misma respuesta, hasta 5 veces.
 
-El 24/11/2026 se comprobo que la sesion HTTP carga el formulario (HTTP 200) y la
-imagen del captcha (JPEG). Aun no se envio una consulta.
+## Respuesta real (24/11/2026)
 
-El parser (`providers/sat.py`) es provisional: toma las tablas de resultado
-como `ordenes` y reconoce mensajes como "no tiene orden de captura". Si no
-reconoce la pagina devuelve `parse_error`, nunca `not_found`. Con
-`OBD_DEBUG_DIR` definido guarda el HTML crudo para ajustarlo.
+Consulta por la API (`POST /v1/queries/stealth`) con una placa autorizada: el
+OCR leyo el captcha y el SAT devolvio la misma pagina con el resultado en
+estas etiquetas:
+
+| Elemento | Contenido |
+|---|---|
+| `ctl00_cplPrincipal_lblMensajeVacio` | "El vehiculo de placa ... no tiene orden de captura en la provincia de Lima." |
+| `ctl00_cplPrincipal_lblFecha` | "Informe actualizado al DD/MM/AAAA" |
+| `ctl00_cplPrincipal_lblMensajeCapcha` | Vacio; aqui aparece el error si el codigo es incorrecto |
+| `ctl00_cplPrincipal_divCapturas` | Contenedor del informe; sin tabla cuando no hay orden |
+
+La pagina viene en UTF-8. El HTML crudo no se versiona (trae la placa).
+
+## Parser
+
+`providers/sat.py`:
+
+- `lblMensajeCapcha` con texto: captcha rechazado, se reintenta.
+- Tabla dentro de `divCapturas`: `success`, `tiene_orden_captura: true`, cada
+  fila en `ordenes[]` (`detalle` y `campos`). **Provisional**: no se vio en real.
+- `lblMensajeVacio` con "no tiene orden": `not_found`, `tiene_orden_captura: false`.
+- `lblFecha`: `actualizado_al` en ISO.
+- Cualquier otra pagina: `parse_error`, nunca `not_found`.
+
+Con `OBD_DEBUG_DIR` definido se guarda el HTML crudo de cada respuesta.
 
 ```powershell
 uv run obd-consultas query sat TU_PLACA --stealth
@@ -49,7 +69,7 @@ uv run obd-consultas query sat TU_PLACA --stealth
 
 Pendiente:
 
-1. Ver una respuesta real (con y sin orden de captura) para definir el parser.
+1. Ver una respuesta real **con** orden de captura para confirmar la tabla.
 2. Medir cuantas veces acierta la lectura del captcha.
 3. Revisar los terminos de uso del SAT antes de automatizar la consulta.
 
