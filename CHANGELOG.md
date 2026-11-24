@@ -17,7 +17,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
   el navegador busca por placa y lee la tabla o el aviso de la pasarela (la API
   del portal responde cifrada). Validada sin infracciones; experimental
   (`implemented=false`) hasta ver un caso con infracciones.
-- `OBD_DEBUG_DIR` guarda el HTML crudo de la respuesta del SAT para ajustar el parser.
+- Fuente `callao` (papeletas de transito del Callao) en modo stealth: sesion
+  HTTP, captcha de 3 caracteres con OCR local y reintentos. Validada sin
+  papeletas; experimental (`implemented=false`) hasta ver un caso con papeletas.
+- `OBD_DEBUG_DIR` guarda el HTML crudo de la respuesta del SAT y del Callao para ajustar el parser.
 - `docs/COBERTURA-APP.md`: fuentes que necesita la app ObdScanner y diferencias de contrato.
 
 ## [0.2.0] - 2026-11-23

@@ -35,6 +35,10 @@ el navegador elige "Por Placa", pulsa BUSCAR (el sitio ejecuta su reCAPTCHA v3)
 y lee la tabla o el aviso de la pagina. Validado sin infracciones; queda
 `implemented=false` hasta ver un caso con infracciones. Ver [ATU.md](docs/ATU.md).
 
+Callao (papeletas de transito) funciona en modo desatendido por HTTP con OCR
+local del codigo de seguridad. Validado sin papeletas; queda `implemented=false`
+hasta ver un caso con papeletas. Ver [CALLAO.md](docs/CALLAO.md).
+
 Para las fuentes configuradas, la API basica (`/v1/queries`) y la CLI sin
 `--stealth` ni `--interactive` devuelven `requires_interaction` sin consultar
 datos ni abrir ventanas.
@@ -52,7 +56,7 @@ datos ni abrir ventanas.
 | AAP | Consulta por placa | Por validar |
 | INFOGAS / FISE | Instalacion GNV/GLP por placa | Por validar |
 | SAT Lima | Orden de captura y papeletas por placa | Por validar (capturas: prioridad 1) |
-| SAT Callao | Papeletas por placa | Por validar |
+| Callao | Papeletas por placa | Parcial: consulta desatendida validada sin papeletas |
 | SUNARP historial | Transferencias y gravamenes | Por validar |
 | SUNAT | Consulta tributaria | Requiere numero de documento |
 | PNP / DIROVE | Datos policiales | **Excluido**: datos sensibles y acceso restringido |
@@ -203,6 +207,7 @@ src/obd_consultas/
   providers/mtc.py         Parser y conector MTC
   providers/sutran.py      Parser experimental de SUTRAN
   providers/atu.py         Parser de la pasarela de infracciones ATU
+  providers/callao.py      Parser del portal de papeletas del Callao
   infrastructure/soat_browser.py  Consulta asistida con Playwright
   infrastructure/soat_stealth.py  Consulta desatendida con Scrapling
   infrastructure/sunarp_stealth.py  Consulta desatendida de SUNARP
@@ -211,6 +216,7 @@ src/obd_consultas/
   infrastructure/mtc_stealth.py  Consulta desatendida de MTC con OCR local
   infrastructure/sutran_stealth.py  Consulta desatendida de SUTRAN
   infrastructure/atu_stealth.py  Consulta desatendida de la ATU (lee la pagina)
+  infrastructure/callao_stealth.py  Consulta desatendida del Callao con OCR local
   infrastructure/scrapling_engine.py  Sesiones sigilosas, HTTP, proxies y parser
   infrastructure/extraction.py  Reglas de extraccion y Markdown
   providers/pending.py     Respuesta explicita para conectores pendientes
@@ -238,6 +244,7 @@ docs/SUNARP.md             Evidencia, flujo y contrato del portal SUNARP
 docs/MTC.md                Evidencia, OCR local, captcha asistido y contrato MTC
 docs/SUTRAN.md             Evidencia y estado experimental del portal SUTRAN
 docs/ATU.md                Evidencia y flujo de la pasarela de infracciones ATU
+docs/CALLAO.md             Evidencia y flujo del portal de papeletas del Callao
 docs/SCRAPLING.md          Motor de scraping, comandos y limites
 ```
 
