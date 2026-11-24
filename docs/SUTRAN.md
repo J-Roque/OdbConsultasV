@@ -34,8 +34,22 @@ llena con este flujo.
 Ahora el conector completa la placa, pulsa Consultar y observa la respuesta de
 la API. No lee, extrae ni fabrica el token: lo obtiene el propio sitio. El
 solver de Cloudflare de Scrapling sigue desactivado (`solve_cloudflare=False`).
-Si Cloudflare exige interaccion, en modo headless no hay respuesta y se devuelve
-`requires_interaction`; con `--show-browser` la persona puede resolverla.
+### Fiabilidad
+
+Turnstile no siempre entrega el token sin interaccion. El 24/11/2026, de 8
+consultas reales seguidas, 6 respondieron en 15 a 20 s y 2 no recibieron token
+(una por la API y otra por la CLI). Por eso, en modo headless:
+
+- cada intento espera hasta 50 s (no los 120 s del sitio, porque nadie puede
+  marcar la casilla);
+- si aparece la casilla de Turnstile, el intento se corta en el acto;
+- se prueba con una sesion de navegador nueva, hasta 3 veces dentro del
+  `timeout` pedido;
+- si ninguna obtiene respuesta se devuelve `requires_interaction`, indicando si
+  Cloudflare mostro la casilla.
+
+Con `--show-browser` hay un solo intento y se espera lo mismo que el sitio
+(120 s) para que la persona pueda marcar la casilla.
 
 ## Flujo
 
