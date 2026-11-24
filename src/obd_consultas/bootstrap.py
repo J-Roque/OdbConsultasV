@@ -17,6 +17,7 @@ from obd_consultas.application.queries import QueryService, Runner, RunnerKey
 from obd_consultas.domain.models import QueryMode, QueryResult, Source, SourceInfo
 from obd_consultas.providers.atu import AtuProvider
 from obd_consultas.providers.base import VehicleProvider
+from obd_consultas.providers.callao import CallaoProvider
 from obd_consultas.providers.catalog import SOURCES
 from obd_consultas.providers.mtc import MtcProvider
 from obd_consultas.providers.pending import PendingProvider
@@ -32,6 +33,7 @@ PROVIDERS: dict[Source, Callable[[], VehicleProvider]] = {
     Source.SUTRAN: SutranProvider,
     Source.SAT: SatProvider,
     Source.ATU: AtuProvider,
+    Source.CALLAO: CallaoProvider,
 }
 
 _INFRA = "obd_consultas.infrastructure"
@@ -60,6 +62,7 @@ RUNNERS: dict[RunnerKey, Runner] = {
     (Source.SUTRAN, QueryMode.STEALTH): _lazy("sutran_stealth", "query_sutran_stealth"),
     (Source.SAT, QueryMode.STEALTH): _lazy("sat_stealth", "query_sat_stealth"),
     (Source.ATU, QueryMode.STEALTH): _lazy("atu_stealth", "query_atu_stealth"),
+    (Source.CALLAO, QueryMode.STEALTH): _lazy("callao_stealth", "query_callao_stealth"),
 }
 
 

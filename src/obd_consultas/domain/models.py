@@ -13,6 +13,7 @@ class Source(str, Enum):
     SUTRAN = "sutran"
     SAT = "sat"
     ATU = "atu"
+    CALLAO = "callao"
 
 
 class QueryStatus(str, Enum):

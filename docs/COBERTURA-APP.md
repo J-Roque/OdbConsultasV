@@ -16,13 +16,14 @@ ObdConsultas es un MVP posterior; este documento fija que falta para llegar ahi.
 | `citv` | `mtc/revision-tecnica` | 30 | `mtc` | Implementado |
 | `sutran` | `mtc/sutran/record` | 5 | `sutran` | Parcial: validado sin documentos |
 | `capture` | `sat/capturas` | 25 | `sat` | Parcial: validado sin orden de captura |
-| `callao` | `sat/callao/papeletas` | 25 | — | **Falta**: papeletas del Callao |
+| `callao` | `sat/callao/papeletas` | 25 | `callao` | Parcial: validado sin papeletas |
 | `atu` | `mtc/atu/infracciones` | 20 | `atu` | Parcial: validado sin infracciones |
 | `history` (opcional) | `sunarp/historial-vehicular` | 60 | — | **Falta**: transferencias y gravamenes |
 
 Una inspeccion completa gasta 166 creditos (226 con historial). ObdConsultas
-cubre hoy 141 de esos 166: SOAT, MTC y SUNARP implementados (91) mas SUTRAN,
-SAT capturas y ATU en estado parcial (50). Falta el Callao (25).
+cubre hoy los 166: SOAT, MTC y SUNARP implementados (91) mas SUTRAN,
+SAT capturas, ATU y Callao en estado parcial (75). Solo falta el historial
+SUNARP, que es opcional.
 
 La app usa ademas la API de NHTSA (`vpic.nhtsa.dot.gov`) para decodificar el VIN.
 Es gratuita y no requiere conector propio.
@@ -47,7 +48,7 @@ backend que reescribir los parsers de la app).
 | MTC (CITV) | `revisiones[]` con `estado`, `resultado`, `vigencia_*`, `observaciones[].detalle`; `vigente` booleano | `registros[]`; `observaciones` texto; `vigente` es el registro vigente o `null` |
 | SUTRAN | `infracciones[]` con `fecha`, `infraccion`/`falta`, `calificacion`/`estado`, `deuda`; `monto_total` | `documentos[]` sin forma validada |
 | SAT capturas | `tiene_orden_captura`, `ordenes[].detalle` | Lo mismo, mas `ordenes[].campos`, `mensaje` y `actualizado_al` |
-| Callao / ATU | `encontrado`, `papeletas[]` o `infracciones[]`, `deuda_total` | ATU: `tiene_infracciones`, `infracciones[]` (filas de la tabla, montos como texto); sin `deuda_total`. Callao: — |
+| Callao / ATU | `encontrado`, `papeletas[]` o `infracciones[]`, `deuda_total` | ATU: `tiene_infracciones`, `infracciones[]` (filas de la tabla, montos como texto); sin `deuda_total`. Callao: `tiene_papeletas`, `papeletas[]` (filas de la tabla); sin `deuda_total` |
 | Historial SUNARP | `transferencias_de_propiedad`, `total_asientos`, `alerta_robo.{reportado, detalle}`, `gravamenes.{tiene_cargas_vigentes, actos[], aviso}` | — |
 
 ## Orden sugerido

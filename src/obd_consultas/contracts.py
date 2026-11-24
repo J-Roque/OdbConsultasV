@@ -210,6 +210,18 @@ class AtuData(Contract):
     capture: Capture | None = None
 
 
+# ------------------------------------------------------------------- CALLAO
+class CallaoData(Contract):
+    """Validado sin papeletas; las columnas con papeletas aun son provisionales."""
+
+    tiene_papeletas: bool
+    papeletas: list[dict[str, str]] = Field(
+        description="Filas de la tabla del portal; claves en snake_case. Se omiten columnas con datos personales."
+    )
+    mensaje: str | None
+    capture: Capture | None = None
+
+
 # ------------------------------------------------------------------ registro
 CONTRACTS: dict[Source, dict[QueryStatus, type[Contract] | Any]] = {
     Source.SOAT: {QueryStatus.SUCCESS: SoatData, QueryStatus.NOT_FOUND: SoatData},
@@ -218,6 +230,7 @@ CONTRACTS: dict[Source, dict[QueryStatus, type[Contract] | Any]] = {
     Source.SUTRAN: {QueryStatus.SUCCESS: SutranData, QueryStatus.NOT_FOUND: SutranData},
     Source.SAT: {QueryStatus.SUCCESS: SatData, QueryStatus.NOT_FOUND: SatData},
     Source.ATU: {QueryStatus.SUCCESS: AtuData, QueryStatus.NOT_FOUND: AtuData},
+    Source.CALLAO: {QueryStatus.SUCCESS: CallaoData, QueryStatus.NOT_FOUND: CallaoData},
 }
 
 ALL_MODELS: tuple[type[Contract], ...] = (
@@ -228,6 +241,7 @@ ALL_MODELS: tuple[type[Contract], ...] = (
     SutranData,
     SatData,
     AtuData,
+    CallaoData,
 )
 
 
